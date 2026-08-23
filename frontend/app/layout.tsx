@@ -4,7 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import Header from "@/components/header";
+import Header from "@/features/header/components/header";
 
 const figtreeHeading = Figtree({
   subsets: ["latin"],
@@ -48,7 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
 
           <SidebarInset>
             <Header />
-            <main>{children}</main>
+            <main className="flex-1">{children}</main>
           </SidebarInset>
         </SidebarProvider>
       </body>

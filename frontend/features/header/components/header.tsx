@@ -1,12 +1,12 @@
 import { Bell, Search } from "lucide-react";
-import { Input } from "./ui/input";
-import { SidebarTrigger } from "./ui/sidebar";
-import ProfileAvatar from "./avatar";
+import { Input } from "../../../components/ui/input";
+import { SidebarTrigger } from "../../../components/ui/sidebar";
+import ProfileAvatar from "../../../components/avatar";
 
 const Header = () => {
   return (
-    <header className="h-16 w-full flex justify-center items-center">
-      <div className="mx-6 sm:mx-10 w-full lg:w-6xl flex justify-between items-center">
+    <header className="h-16 bg-blue-500 shadow-[0_2px_2px_rgba(0,0,0,0.2)] w-full flex justify-center items-center z-50">
+      <div className="mx-6 sm:mx-10 w-full flex justify-between items-center">
         <div className="hidden sm:flex gap-4 items-center">
           <p className="font-bold">Social Media</p>
           <div className="flex items-center justify-center border-2 rounded-md">
