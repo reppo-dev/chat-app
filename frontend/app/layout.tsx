@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/features/header/components/header";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const figtreeHeading = Figtree({
   subsets: ["latin"],
@@ -41,14 +42,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         inter.variable,
         figtreeHeading.variable,
       )}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
         <SidebarProvider defaultOpen={false}>
           <AppSidebar />
 
           <SidebarInset>
-            <Header />
-            <main className="flex-1">{children}</main>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <Header />
+              <main>{children}</main>
+            </ThemeProvider>
           </SidebarInset>
         </SidebarProvider>
       </body>

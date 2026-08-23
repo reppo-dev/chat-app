@@ -2,10 +2,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupAction,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -16,13 +12,13 @@ import {
   Bookmark,
   CalendarDays,
   Home,
-  Plus,
   ShoppingBag,
   User,
   User2,
   Users,
   Video,
 } from "lucide-react";
+import Link from "next/link";
 
 const sidebarValue = [
   { icon: <Home size={20} />, name: "Home", url: "/" },
@@ -45,10 +41,12 @@ export function AppSidebar() {
         <SidebarMenu className="gap-2">
           {sidebarValue.map((item) => (
             <SidebarMenuItem className="ml-4" key={item.name}>
-              <SidebarMenuButton>
-                {item.icon}
-                {item.name}
-              </SidebarMenuButton>
+              <Link href={item.url}>
+                <SidebarMenuButton>
+                  {item.icon}
+                  {item.name}
+                </SidebarMenuButton>
+              </Link>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

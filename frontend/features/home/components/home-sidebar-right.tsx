@@ -1,29 +1,27 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Link from "next/link";
 
 const sidebarValue = [
-  { image: "", name: "Home", url: "/" },
-  { image: "", name: "Profile", url: "/profile" },
-  { image: "", name: "Watch", url: "/watch" },
+  { image: "", name: "Home", id: "/" },
+  { image: "", name: "Profile", id: "/profile" },
+  { image: "", name: "Watch", id: "/watch" },
   {
     image: "",
     name: "Marketplace",
-    url: "/marketplace",
+    id: "/marketplace",
   },
-  { image: "", name: "Groups", url: "/groups" },
-  { image: "", name: "Saved", url: "/saved" },
-  { image: "", name: "Events", url: "/events" },
+  { image: "", name: "Groups", id: "/groups" },
+  { image: "", name: "Saved", id: "/saved" },
+  { image: "", name: "Events", id: "/events" },
 ];
 
 export function RightHomeSidebar() {
   return (
-    <aside className="w-70 h-full hidden sm:flex flex-col items-start justify-start gap-1 bg-white z-0">
+    <aside className="w-70 h-full hidden sm:flex flex-col items-start justify-start gap-1  z-0">
       {sidebarValue.map((item) => {
         return (
-          <Link
-            href={item.url}
+          <div
             key={item.name}
             className="flex items-start justify-start ml-10 gap-4 mt-4"
           >
@@ -32,7 +30,7 @@ export function RightHomeSidebar() {
               <AvatarFallback>{item.name[1]}</AvatarFallback>
             </Avatar>
             <div>{item.name}</div>
-          </Link>
+          </div>
         );
       })}
     </aside>
