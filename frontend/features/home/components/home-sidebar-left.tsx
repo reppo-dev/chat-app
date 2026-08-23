@@ -1,37 +1,53 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Bookmark,
+  CalendarDays,
+  Home,
+  ShoppingBag,
+  User,
+  Users,
+  Video,
+} from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const sidebarValue = [
-  { image: "", name: "Home", url: "/" },
-  { image: "", name: "Profile", url: "/profile" },
-  { image: "", name: "Watch", url: "/watch" },
-  {
-    image: "",
-    name: "Marketplace",
-    url: "/marketplace",
-  },
-  { image: "", name: "Groups", url: "/groups" },
-  { image: "", name: "Saved", url: "/saved" },
-  { image: "", name: "Events", url: "/events" },
+  { icon: <Home size={20} />, name: "Home", url: "/" },
+  { icon: <User size={20} />, name: "Profile", url: "/profile" },
+  { icon: <Video size={20} />, name: "Watch", url: "/watch" },
+  { icon: <ShoppingBag size={20} />, name: "Marketplace", url: "/marketplace" },
+  { icon: <Users size={20} />, name: "Groups", url: "/groups" },
+  { icon: <Bookmark size={20} />, name: "Saved", url: "/saved" },
+  { icon: <CalendarDays size={20} />, name: "Events", url: "/events" },
 ];
 
-export function LeftHomeSidebar() {
+export function LefttHomeSidebar() {
+  const pathname = usePathname();
   return (
-    <aside className="w-70 h-full hidden sm:flex flex-col items-start justify-start gap-1 bg-white z-0">
+    <aside className="w-60 h-full hidden sm:flex flex-col justify-start gap-1 bg-white z-0">
       {sidebarValue.map((item) => {
+        const isActive = pathname === item.url;
+
         return (
           <Link
             href={item.url}
             key={item.name}
-            className="flex items-start justify-start ml-10 gap-4 mt-4"
+            className={`
+              flex items-center justify-start ml-10 gap-4 mt-4
+             
+            `}
           >
-            <Avatar>
-              <AvatarImage>{item.image}</AvatarImage>
-              <AvatarFallback>{item.name[1]}</AvatarFallback>
-            </Avatar>
-            <div>{item.name}</div>
+            <div
+              className={` ${isActive ? "text-blue-500 font-bold" : "text-gray-600"}`}
+            >
+              {item.icon}
+            </div>
+            <div
+              className={` text-sm ${isActive ? " font-bold" : "text-gray-600"}`}
+            >
+              {item.name}
+            </div>
           </Link>
         );
       })}

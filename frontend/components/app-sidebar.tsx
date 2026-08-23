@@ -12,7 +12,27 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Plus, User2 } from "lucide-react";
+import {
+  Bookmark,
+  CalendarDays,
+  Home,
+  Plus,
+  ShoppingBag,
+  User,
+  User2,
+  Users,
+  Video,
+} from "lucide-react";
+
+const sidebarValue = [
+  { icon: <Home size={20} />, name: "Home", url: "/" },
+  { icon: <User size={20} />, name: "Profile", url: "/profile" },
+  { icon: <Video size={20} />, name: "Watch", url: "/watch" },
+  { icon: <ShoppingBag size={20} />, name: "Marketplace", url: "/marketplace" },
+  { icon: <Users size={20} />, name: "Groups", url: "/groups" },
+  { icon: <Bookmark size={20} />, name: "Saved", url: "/saved" },
+  { icon: <CalendarDays size={20} />, name: "Events", url: "/events" },
+];
 
 export function AppSidebar() {
   return (
@@ -22,22 +42,18 @@ export function AppSidebar() {
         <p className="font-bold">Social Media</p>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupAction>
-            <Plus /> <span className="sr-only">Add Project</span>
-          </SidebarGroupAction>
-          <SidebarGroupContent></SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupAction>
-            <Plus /> <span className="sr-only">Add Project</span>
-          </SidebarGroupAction>
-          <SidebarGroupContent></SidebarGroupContent>
-        </SidebarGroup>
+        <SidebarMenu className="gap-2">
+          {sidebarValue.map((item) => (
+            <SidebarMenuItem className="ml-4" key={item.name}>
+              <SidebarMenuButton>
+                {item.icon}
+                {item.name}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="mb-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton>
