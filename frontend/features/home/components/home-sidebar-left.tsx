@@ -39,12 +39,12 @@ export function LefttHomeSidebar() {
             `}
           >
             <div
-              className={` ${isActive ? "text-blue-500 font-bold" : "text-gray-600"}`}
+              className={` ${isActive ? "text-blue-500 font-bold" : "text-gray-600 dark:text-gray-400"}`}
             >
               {item.icon}
             </div>
             <div
-              className={` text-sm ${isActive ? " font-bold" : "text-gray-600"}`}
+              className={` text-sm ${isActive ? " font-bold" : "text-gray-600 dark:text-gray-400"}`}
             >
               {item.name}
             </div>

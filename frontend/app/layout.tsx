@@ -56,7 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               disableTransitionOnChange
             >
               <Header />
-              <main>{children}</main>
+              <main className="flex-1">{children}</main>
             </ThemeProvider>
           </SidebarInset>
         </SidebarProvider>

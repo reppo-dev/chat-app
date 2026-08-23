@@ -6,7 +6,7 @@ const Home = () => {
   return (
     <div className=" w-full h-full">
       <div className="mx-4 mt-4 flex flex-col gap-2">
-        <div className="flex flex-col gap-3 bg-white h-16 justify-center p-4 rounded-sm">
+        <div className="flex flex-col gap-3 bg-white dark:bg-primary-foreground h-16 justify-center p-4 rounded-sm">
           <div className="flex gap-4">
             <Avatar>
               <AvatarImage>dd</AvatarImage>
