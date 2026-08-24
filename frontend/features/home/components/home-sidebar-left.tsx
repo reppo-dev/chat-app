@@ -25,7 +25,7 @@ const sidebarValue = [
 export function LefttHomeSidebar() {
   const pathname = usePathname();
   return (
-    <aside className="w-60 h-full hidden sm:flex flex-col justify-start gap-1 z-0">
+    <aside className="w-60 dark:bg-zinc-950 h-full hidden sm:flex flex-col justify-start gap-1 z-0">
       {sidebarValue.map((item) => {
         const isActive = pathname === item.url;
 

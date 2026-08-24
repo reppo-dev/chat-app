@@ -18,7 +18,7 @@ const sidebarValue = [
 
 export function RightHomeSidebar() {
   return (
-    <aside className="w-70 h-full hidden sm:flex flex-col items-start justify-start gap-1  z-0">
+    <aside className="w-70 h-full dark:bg-zinc-950 hidden sm:flex flex-col items-start justify-start gap-1  z-0">
       {sidebarValue.map((item) => {
         return (
           <div
