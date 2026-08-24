@@ -6,6 +6,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/features/header/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
+import ReduxProvider from "@/lib/redux/provider";
+import ReactQuertProvider from "@/lib/tanstack/provider";
 
 const figtreeHeading = Figtree({
   subsets: ["latin"],
@@ -55,8 +57,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               enableSystem
               disableTransitionOnChange
             >
-              <Header />
-              <main className="flex-1">{children}</main>
+              <ReduxProvider>
+                <ReactQuertProvider>
+                  <Header />
+                  <main className="flex-1">{children}</main>
+                </ReactQuertProvider>
+              </ReduxProvider>
             </ThemeProvider>
           </SidebarInset>
         </SidebarProvider>
