@@ -40,3 +40,27 @@ func GenerateJWT(userId int64,name string) (string,error) {
 	return token.SignedString(jwtkey)
 }
 
+func ParsJWT(tokenStr string) (int64,string,error) {
+	if len(jwtkey) == 0{
+		return 0,"",errors.New("kwt key not initialized")
+	}
+
+	token,err := jwt.ParseWithClaims(tokenStr,&CustomeClaims{},func(t *jwt.Token) (any, error) {
+		if _,ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return "",errors.New("unxpected signing method")
+		}
+		return jwtkey,nil
+	})
+
+	if err != nil {
+		return 0,"",err
+	}
+
+	claim,ok := token.Claims.(*CustomeClaims)
+
+	if !ok {
+		return 0,"",errors.New("invalid claim type")
+	}
+
+	return claim.UserID,claim.Name,nil
+}
