@@ -9,7 +9,7 @@ import (
 )
 
 type Config struct {
-	JWT_KEYy     string `env:"JWT_KEYy"`
+	JWT_KEY     string `env:"JWT_KEY"`
 	DB           string `env:"DB"`
 	HTTP_ADDRESS string `env:"HTTP_ADDRESS"`
 	DB_DRIVER    string `env:"DB_DRIVER"`
