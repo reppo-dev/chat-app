@@ -39,6 +39,7 @@ type Querier interface {
 	GetPostByID(ctx context.Context, id int64) (Posts, error)
 	GetPostsByUser(ctx context.Context, arg GetPostsByUserParams) ([]Posts, error)
 	GetReaction(ctx context.Context, arg GetReactionParams) (Reactions, error)
+	GetRefreshTokenHash(ctx context.Context, userID int64) (RefreshTokens, error)
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id int64) (Users, error)
 	GetUserConversations(ctx context.Context, userID int64) ([]Conversations, error)

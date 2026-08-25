@@ -15,6 +15,11 @@ SET
 WHERE token_hash = $1
 RETURNING *;
 
+-- name: GetRefreshTokenHash :one
+SELECT *
+FROM refresh_tokens
+WHERE user_id = $1
+LIMIT 1;
 
 -- name: GetValidRefreshTokenByHash :one
 SELECT *

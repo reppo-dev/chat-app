@@ -59,6 +59,26 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, id int64) error {
 	return err
 }
 
+const getRefreshTokenHash = `-- name: GetRefreshTokenHash :one
+SELECT id, user_id, token_hash, expires_at, created_at
+FROM refresh_tokens
+WHERE user_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetRefreshTokenHash(ctx context.Context, userID int64) (RefreshTokens, error) {
+	row := q.db.QueryRowContext(ctx, getRefreshTokenHash, userID)
+	var i RefreshTokens
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getValidRefreshTokenByHash = `-- name: GetValidRefreshTokenByHash :one
 SELECT id, user_id, token_hash, expires_at, created_at
 FROM refresh_tokens
