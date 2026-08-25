@@ -330,6 +330,14 @@ type Reactions struct {
 	UpdatedAt time.Time    `json:"updated_at"`
 }
 
+type RefreshTokens struct {
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
+	TokenHash string    `json:"token_hash"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Users struct {
 	ID           int64                 `json:"id"`
 	Email        string                `json:"email"`

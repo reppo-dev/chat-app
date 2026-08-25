@@ -19,12 +19,15 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notifications, error)
 	CreatePost(ctx context.Context, arg CreatePostParams) (Posts, error)
 	CreateReaction(ctx context.Context, arg CreateReactionParams) (Reactions, error)
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshTokens, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
+	DeleteAllUserRefreshTokens(ctx context.Context, userID int64) error
 	DeleteComment(ctx context.Context, id int64) error
 	DeleteFriendRequest(ctx context.Context, id int64) error
 	DeleteFriendship(ctx context.Context, arg DeleteFriendshipParams) error
 	DeletePost(ctx context.Context, id int64) error
 	DeleteReaction(ctx context.Context, arg DeleteReactionParams) error
+	DeleteRefreshToken(ctx context.Context, id int64) error
 	GetCommentByID(ctx context.Context, id int64) (Comments, error)
 	GetCommentsByPost(ctx context.Context, postID int64) ([]Comments, error)
 	GetConversationMembers(ctx context.Context, conversationID int64) ([]Users, error)
@@ -40,6 +43,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id int64) (Users, error)
 	GetUserConversations(ctx context.Context, userID int64) ([]Conversations, error)
 	GetUserNotifications(ctx context.Context, arg GetUserNotificationsParams) ([]Notifications, error)
+	GetValidRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshTokens, error)
 	HasUserSeenMessage(ctx context.Context, arg HasUserSeenMessageParams) (bool, error)
 	IsFriend(ctx context.Context, arg IsFriendParams) (bool, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]Users, error)
@@ -54,6 +58,7 @@ type Querier interface {
 	UpdateMessage(ctx context.Context, arg UpdateMessageParams) (Messages, error)
 	UpdatePost(ctx context.Context, arg UpdatePostParams) (Posts, error)
 	UpdateReaction(ctx context.Context, arg UpdateReactionParams) (Reactions, error)
+	UpdateRefreshToken(ctx context.Context, arg UpdateRefreshTokenParams) (RefreshTokens, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (Users, error)
 }
 

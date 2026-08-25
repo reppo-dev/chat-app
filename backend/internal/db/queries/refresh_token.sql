@@ -7,6 +7,14 @@ INSERT INTO refresh_tokens (
 VALUES ($1, $2, $3)
 RETURNING *;
 
+-- name: UpdateRefreshToken :one
+UPDATE refresh_tokens
+SET
+    token_hash = $2,
+    expires_at = $3
+WHERE token_hash = $1
+RETURNING *;
+
 
 -- name: GetValidRefreshTokenByHash :one
 SELECT *
