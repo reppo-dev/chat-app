@@ -155,3 +155,38 @@ func (server *Server) handleSearchUsers(c *gin.Context) {
 		"users":users,
 	})
 }
+
+
+
+func (server *Server) handleListUsers(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	limit := int32(20)
+	offset := int32(0)
+
+	if l := c.Query("limit"); l != "" {
+		if parsed , err := strconv.ParseInt(l,10,32);err == nil && parsed > 0 && parsed <= 100 {
+			limit = int32(parsed)
+		}
+	}
+	if o := c.Query("offset"); o != "" {
+		if parsed ,err := strconv.ParseInt(o,10,32); err ==nil && parsed >= 0 {
+			offset = int32(parsed)
+		}
+	}
+
+	users,err:= server.queries.ListUsers(ctx,db.ListUsersParams{
+		Limit: limit,
+		Offset: offset,
+	})
+
+	if err != nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Failed to fetch users",nil)
+		return
+	}
+
+	utils.JSON(c,http.StatusOK,true,"Users fetched",gin.H{
+		"users":users,
+	})
+}
