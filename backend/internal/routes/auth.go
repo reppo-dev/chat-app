@@ -98,7 +98,9 @@ func (server *Server) handelEmailRegister(c *gin.Context) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	utils.JSON(c,http.StatusCreated,true,"SignUp successfully",accessToken)
+	utils.JSON(c,http.StatusCreated,true,"SignUp successfully",gin.H{
+        "access_token": accessToken,
+    })
 }
 
 
@@ -181,7 +183,9 @@ func (server *Server) handelEmailLogin(c *gin.Context) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	utils.JSON(c,http.StatusOK,true,"Login successfully",accessToken)
+	utils.JSON(c,http.StatusOK,true,"Login successfully",gin.H{
+        "access_token": accessToken,
+    })
 }
 
 
@@ -218,4 +222,72 @@ func (server *Server) handelLogout(c *gin.Context) {
 	})
 
 	utils.JSON(c,http.StatusOK,true,"Logged out",nil)
+}
+
+
+func (server *Server) handleRefreshSession(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5*time.Second)
+	defer cancel()
+
+	refreshTokenHeader,err := c.Cookie("refresh_token")
+	if err!= nil {
+		utils.JSON(c,http.StatusNotFound,false,"Invalid refresh session",nil)
+		return
+	}
+
+
+	refreshTokenHash := utils.HashRefreshToken(refreshTokenHeader)
+
+	refreshTokenUser,err := server.queries.GetValidRefreshTokenByHash(ctx,refreshTokenHash)
+	if err!=nil {
+		utils.JSON(c,http.StatusNotFound,false,"Invalid refresh session",nil)
+		return
+	}
+
+	user,err :=server.queries.GetUserByID(ctx,refreshTokenUser.UserID)
+	if err!= nil {
+		utils.JSON(c,http.StatusNotFound,false,"Invalid refresh session",nil)
+		return
+	}
+
+	jwtToken,err:= utils.GenerateJWT(user.ID,user.Name)
+
+	if err!=nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Please try again later",nil)
+		return
+	}
+
+	newRefreshToken,err:= utils.GenerateRefreshToken()
+	if err!=nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Please try again later",nil)
+		return
+	}
+
+	newRefreshTokenhas := utils.HashRefreshToken(newRefreshToken)
+
+	arg  := db.UpdateRefreshTokenParams{
+		TokenHash: refreshTokenHash,
+		TokenHash_2: newRefreshTokenhas,
+		ExpiresAt: time.Now().Add(720 * time.Hour),
+	}
+
+	_,err =server.queries.UpdateRefreshToken(ctx,arg)
+	if err!=nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Please login again",nil)
+		return
+	}
+
+	http.SetCookie(c.Writer,&http.Cookie{
+		Name: "refresh_token",
+		Value: newRefreshToken,
+		HttpOnly: true,
+		Secure: true,
+		Path: "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	utils.JSON(c,http.StatusOK,true,"Session refreshed successfully",gin.H{
+        "access_token": jwtToken,
+    })
+
 }
