@@ -53,3 +53,12 @@ SET
     is_active = FALSE,
     updated_at = NOW()
 WHERE id = $1;
+
+-- name: SearchUsersByName :many
+SELECT *
+FROM users
+WHERE is_active = TRUE
+  AND name ILIKE '%' || $1 || '%'
+  AND id != $3
+ORDER BY name
+LIMIT $2;
