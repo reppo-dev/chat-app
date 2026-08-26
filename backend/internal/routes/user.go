@@ -3,7 +3,9 @@ package routes
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -82,3 +84,30 @@ func (server *Server) handleUpdateProfile(c *gin.Context) {
 		"user":user,
 	})
 }
+
+func (server *Server) handleGetUserProfile(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userIDStr := c.Param("user_id")
+	userID,err := strconv.ParseInt(userIDStr,10,64)
+	if err != nil {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid user ID",nil)
+		return
+	}
+
+	user,err := server.queries.GetUserByID(ctx,userID)
+	if err!=nil {
+		if errors.Is(err,sql.ErrNoRows) {
+		utils.JSON(c,http.StatusBadRequest,false,"User not found",nil)
+		return
+		}
+		utils.JSON(c,http.StatusInternalServerError,false,"failed to fetch user",nil)
+		return
+	}
+
+	utils.JSON(c,http.StatusOK,true,"User profile fetched",gin.H{
+		"user":user,
+	})
+}
+
