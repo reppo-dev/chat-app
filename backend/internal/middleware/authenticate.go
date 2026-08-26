@@ -17,7 +17,7 @@ const (
 func Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := strings.TrimSpace(c.GetHeader(CtxAuthorization))
-		if authHeader== "" || !strings.HasPrefix(strings.ToLower(authHeader),"beare ") {
+		if authHeader== "" || !strings.HasPrefix(strings.ToLower(authHeader),"bearer ") {
 			utils.JSON(c,http.StatusUnauthorized,false,"Unauthorized",nil)
 			c.Abort()
 			return

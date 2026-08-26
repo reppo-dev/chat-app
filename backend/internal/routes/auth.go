@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
+	"github.com/reppo-dev/chat-app/internal/middleware"
 	"github.com/reppo-dev/chat-app/internal/utils"
 )
 
@@ -188,6 +189,33 @@ func (server *Server) handelLogout(c *gin.Context) {
 	ctx,cancel:= context.WithTimeout(c.Request.Context(),5*time.Second)
 	defer cancel()
 
-	
+	userIdAny,exists:= c.Get(middleware.CtxUserID)
+	if !exists{
+		utils.JSON(c,http.StatusUnauthorized,false,"Unauthorized",nil)
+		return
+	}
 
+	userId,ok:= userIdAny.(int64)
+	if !ok{
+		utils.JSON(c,http.StatusUnauthorized,false,"Unauthorized",nil)
+		return
+	}
+	
+	err :=server.queries.DeleteAllUserRefreshTokens(ctx,userId)
+	if err != nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Something went wrong",nil)
+		return
+	}
+
+	http.SetCookie(c.Writer,&http.Cookie{
+		Name: "refresh_token",
+		Value: "",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure: true,
+		Path: "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	utils.JSON(c,http.StatusOK,true,"Logged out",nil)
 }
