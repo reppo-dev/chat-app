@@ -158,6 +158,59 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]Users, 
 	return items, nil
 }
 
+const searchUsersByName = `-- name: SearchUsersByName :many
+SELECT id, email, name, password_hash, role, bio, avatar, cover_photo, birthdate, phone_number, is_active, created_at, updated_at
+FROM users
+WHERE is_active = TRUE
+  AND name ILIKE '%' || $1 || '%'
+  AND id != $3
+ORDER BY name
+LIMIT $2
+`
+
+type SearchUsersByNameParams struct {
+	Column1 sql.NullString `json:"column_1"`
+	Limit   int32          `json:"limit"`
+	ID      int64          `json:"id"`
+}
+
+func (q *Queries) SearchUsersByName(ctx context.Context, arg SearchUsersByNameParams) ([]Users, error) {
+	rows, err := q.db.QueryContext(ctx, searchUsersByName, arg.Column1, arg.Limit, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Users{}
+	for rows.Next() {
+		var i Users
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.Role,
+			&i.Bio,
+			&i.Avatar,
+			&i.CoverPhoto,
+			&i.Birthdate,
+			&i.PhoneNumber,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteUser = `-- name: SoftDeleteUser :exec
 UPDATE users
 SET

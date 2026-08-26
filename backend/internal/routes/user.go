@@ -111,3 +111,47 @@ func (server *Server) handleGetUserProfile(c *gin.Context) {
 	})
 }
 
+func (server *Server) handleSearchUsers(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5 * time.Second)
+	defer cancel()
+
+	userIDAny ,exists := c.Get(middleware.CtxUserID)
+	if !exists {
+		utils.JSON(c,http.StatusUnauthorized,false,"Unauthorized",nil)
+		return
+	}
+
+	userID,ok:= userIDAny.(int64)
+	if !ok {
+		utils.JSON(c,http.StatusUnauthorized,false,"Unauthorized",nil)
+		return
+	}
+
+	name:= c.Query("name")
+	if name == "" {
+		utils.JSON(c,http.StatusBadRequest,false,"Name quert parameter is required",nil)
+		return
+	}
+
+	limit := int32(20)
+	if l := c.Query("limit"); l != "" {
+		if parsed,err := strconv.ParseInt(l,10,32);err == nil && parsed > 0 && parsed<= 100 {
+			limit = int32(parsed)
+		}
+	}
+
+	users,err:= server.queries.SearchUsersByName(ctx,db.SearchUsersByNameParams{
+		Column1: sql.NullString{String: name,Valid: true},
+		Limit: limit,
+		ID: userID,
+	})
+
+	if err != nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Search failed",nil)
+		return
+	}
+
+	utils.JSON(c,http.StatusOK,true,"Users found",gin.H{
+		"users":users,
+	})
+}

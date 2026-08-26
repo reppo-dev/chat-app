@@ -53,6 +53,7 @@ type Querier interface {
 	MarkNotificationAsRead(ctx context.Context, id int64) error
 	RejectFriendRequest(ctx context.Context, id int64) (FriendRequests, error)
 	RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error
+	SearchUsersByName(ctx context.Context, arg SearchUsersByNameParams) ([]Users, error)
 	SoftDeleteMessage(ctx context.Context, id int64) error
 	SoftDeleteUser(ctx context.Context, id int64) error
 	UpdateComment(ctx context.Context, arg UpdateCommentParams) (Comments, error)
