@@ -13,7 +13,7 @@ import (
 	"github.com/reppo-dev/chat-app/internal/utils"
 )
 
-func (server *Server) handelEmailRegister(c *gin.Context) {
+func (server *Server) handleEmailRegister(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
 	defer cancel()
 
@@ -104,7 +104,7 @@ func (server *Server) handelEmailRegister(c *gin.Context) {
 }
 
 
-func (server *Server) handelEmailLogin(c *gin.Context) {
+func (server *Server) handleEmailLogin(c *gin.Context) {
 	ctx,cancel := context.WithTimeout(c.Request.Context(),5*time.Second)
 	defer cancel()
 
@@ -189,7 +189,7 @@ func (server *Server) handelEmailLogin(c *gin.Context) {
 }
 
 
-func (server *Server) handelLogout(c *gin.Context) {
+func (server *Server) handleLogout(c *gin.Context) {
 	ctx,cancel:= context.WithTimeout(c.Request.Context(),5*time.Second)
 	defer cancel()
 
@@ -294,24 +294,33 @@ func (server *Server) handleRefreshSession(c *gin.Context) {
 
 
 func (server *Server) handleGetCurrentUser(c *gin.Context) {
-	ctx,cancel:= context.WithTimeout(c.Request.Context(),5*time.Second)
-	defer cancel()
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+    defer cancel()
 
-	refreshTokenHeader,err := c.Cookie("refresh_token")
-	if err!= nil {
-		utils.JSON(c,http.StatusNotFound,false,"Invalid refresh session",nil)
-		return
-	}
+    userIDAny, exists := c.Get(middleware.CtxUserID)
+    if !exists {
+        utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+        return
+    }
 
-	refreshTokenHash:= utils.HashRefreshToken(refreshTokenHeader)
+    userID, ok := userIDAny.(int64)
+    if !ok {
+        utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+        return
+    }
 
-	user,err:=server.queries.GetValidRefreshTokenByHash(ctx,refreshTokenHash)
-	if err!=nil {
-		utils.JSON(c,http.StatusNotFound,false,"Invalid refresh session",nil)
-		return
-	}
+    user, err := server.queries.GetUserByID(ctx, userID)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            utils.JSON(c, http.StatusNotFound, false, "User not found", nil)
+            return
+        }
 
-	utils.JSON(c,http.StatusOK,true,"Current user fetched",gin.H{
-		"user":user,
-	})
+        utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch user", nil)
+        return
+    }
+
+    utils.JSON(c, http.StatusOK, true, "Current user fetched", gin.H{
+        "user": user,
+    })
 }
