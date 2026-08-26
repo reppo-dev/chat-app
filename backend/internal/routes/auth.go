@@ -291,3 +291,27 @@ func (server *Server) handleRefreshSession(c *gin.Context) {
     })
 
 }
+
+
+func (server *Server) handleGetCurrentUser(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5*time.Second)
+	defer cancel()
+
+	refreshTokenHeader,err := c.Cookie("refresh_token")
+	if err!= nil {
+		utils.JSON(c,http.StatusNotFound,false,"Invalid refresh session",nil)
+		return
+	}
+
+	refreshTokenHash:= utils.HashRefreshToken(refreshTokenHeader)
+
+	user,err:=server.queries.GetValidRefreshTokenByHash(ctx,refreshTokenHash)
+	if err!=nil {
+		utils.JSON(c,http.StatusNotFound,false,"Invalid refresh session",nil)
+		return
+	}
+
+	utils.JSON(c,http.StatusOK,true,"Current user fetched",gin.H{
+		"user":user,
+	})
+}
