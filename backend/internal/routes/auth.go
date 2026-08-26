@@ -12,7 +12,7 @@ import (
 	"github.com/reppo-dev/chat-app/internal/utils"
 )
 
-func (server *Server) RegisterUser(c *gin.Context) {
+func (server *Server) handelEmailRegister(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
 	defer cancel()
 
@@ -101,7 +101,7 @@ func (server *Server) RegisterUser(c *gin.Context) {
 }
 
 
-func (server *Server) Login(c *gin.Context) {
+func (server *Server) handelEmailLogin(c *gin.Context) {
 	ctx,cancel := context.WithTimeout(c.Request.Context(),5*time.Second)
 	defer cancel()
 
@@ -181,4 +181,13 @@ func (server *Server) Login(c *gin.Context) {
 	})
 
 	utils.JSON(c,http.StatusOK,true,"Login successfully",accessToken)
+}
+
+
+func (server *Server) handelLogout(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5*time.Second)
+	defer cancel()
+
+	
+
 }
