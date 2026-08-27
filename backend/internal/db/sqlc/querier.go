@@ -30,6 +30,8 @@ type Querier interface {
 	DeleteRefreshToken(ctx context.Context, id int64) error
 	GetCommentByID(ctx context.Context, id int64) (Comments, error)
 	GetCommentsByPost(ctx context.Context, postID int64) ([]Comments, error)
+	GetConversationByID(ctx context.Context, id int64) (Conversations, error)
+	GetConversationByMembers(ctx context.Context, arg GetConversationByMembersParams) (Conversations, error)
 	GetConversationMembers(ctx context.Context, conversationID int64) ([]Users, error)
 	GetConversationMessages(ctx context.Context, arg GetConversationMessagesParams) ([]Messages, error)
 	GetFeedPosts(ctx context.Context, arg GetFeedPostsParams) ([]Posts, error)
@@ -58,6 +60,7 @@ type Querier interface {
 	SoftDeleteMessage(ctx context.Context, id int64) error
 	SoftDeleteUser(ctx context.Context, id int64) error
 	UpdateComment(ctx context.Context, arg UpdateCommentParams) (Comments, error)
+	UpdateConversationLastMessage(ctx context.Context, arg UpdateConversationLastMessageParams) error
 	UpdateMessage(ctx context.Context, arg UpdateMessageParams) (Messages, error)
 	UpdatePost(ctx context.Context, arg UpdatePostParams) (Posts, error)
 	UpdateReaction(ctx context.Context, arg UpdateReactionParams) (Reactions, error)

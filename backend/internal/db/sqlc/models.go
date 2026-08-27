@@ -14,6 +14,49 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
+type ConversationType string
+
+const (
+	ConversationTypeDirect  ConversationType = "direct"
+	ConversationTypeGroup   ConversationType = "group"
+	ConversationTypeChannel ConversationType = "channel"
+)
+
+func (e *ConversationType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ConversationType(s)
+	case string:
+		*e = ConversationType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ConversationType: %T", src)
+	}
+	return nil
+}
+
+type NullConversationType struct {
+	ConversationType ConversationType `json:"conversation_type"`
+	Valid            bool             `json:"valid"` // Valid is true if ConversationType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullConversationType) Scan(value interface{}) error {
+	if value == nil {
+		ns.ConversationType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ConversationType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullConversationType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ConversationType), nil
+}
+
 type FriendRequestStatus string
 
 const (
@@ -249,15 +292,16 @@ type ConversationMembers struct {
 }
 
 type Conversations struct {
-	ID            int64                 `json:"id"`
-	IsGroup       bool                  `json:"is_group"`
-	GroupOwnerID  sql.NullInt64         `json:"group_owner_id"`
-	GroupName     sql.NullString        `json:"group_name"`
-	GroupAvatar   pqtype.NullRawMessage `json:"group_avatar"`
-	LastMessageID sql.NullInt64         `json:"last_message_id"`
-	LastMessageAt sql.NullTime          `json:"last_message_at"`
-	CreatedAt     time.Time             `json:"created_at"`
-	UpdatedAt     time.Time             `json:"updated_at"`
+	ID               int64                 `json:"id"`
+	IsGroup          bool                  `json:"is_group"`
+	GroupOwnerID     sql.NullInt64         `json:"group_owner_id"`
+	GroupName        sql.NullString        `json:"group_name"`
+	GroupAvatar      pqtype.NullRawMessage `json:"group_avatar"`
+	LastMessageID    sql.NullInt64         `json:"last_message_id"`
+	LastMessageAt    sql.NullTime          `json:"last_message_at"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
+	ConversationType ConversationType      `json:"conversation_type"`
 }
 
 type FriendRequests struct {

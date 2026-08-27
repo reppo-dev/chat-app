@@ -39,7 +39,7 @@ VALUES (
     $2,
     $3
 )
-RETURNING id, is_group, group_owner_id, group_name, group_avatar, last_message_id, last_message_at, created_at, updated_at
+RETURNING id, is_group, group_owner_id, group_name, group_avatar, last_message_id, last_message_at, created_at, updated_at, conversation_type
 `
 
 type CreateConversationParams struct {
@@ -61,6 +61,66 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ConversationType,
+	)
+	return i, err
+}
+
+const getConversationByID = `-- name: GetConversationByID :one
+SELECT id, is_group, group_owner_id, group_name, group_avatar, last_message_id, last_message_at, created_at, updated_at, conversation_type
+FROM conversations
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetConversationByID(ctx context.Context, id int64) (Conversations, error) {
+	row := q.db.QueryRowContext(ctx, getConversationByID, id)
+	var i Conversations
+	err := row.Scan(
+		&i.ID,
+		&i.IsGroup,
+		&i.GroupOwnerID,
+		&i.GroupName,
+		&i.GroupAvatar,
+		&i.LastMessageID,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ConversationType,
+	)
+	return i, err
+}
+
+const getConversationByMembers = `-- name: GetConversationByMembers :one
+SELECT c.id, c.is_group, c.group_owner_id, c.group_name, c.group_avatar, c.last_message_id, c.last_message_at, c.created_at, c.updated_at, c.conversation_type
+FROM conversations c
+JOIN conversation_members cm1 ON cm1.conversation_id = c.id
+JOIN conversation_members cm2 ON cm2.conversation_id = c.id
+WHERE cm1.user_id = $1
+  AND cm2.user_id = $2
+  AND c.is_group = FALSE
+LIMIT 1
+`
+
+type GetConversationByMembersParams struct {
+	UserID   int64 `json:"user_id"`
+	UserID_2 int64 `json:"user_id_2"`
+}
+
+func (q *Queries) GetConversationByMembers(ctx context.Context, arg GetConversationByMembersParams) (Conversations, error) {
+	row := q.db.QueryRowContext(ctx, getConversationByMembers, arg.UserID, arg.UserID_2)
+	var i Conversations
+	err := row.Scan(
+		&i.ID,
+		&i.IsGroup,
+		&i.GroupOwnerID,
+		&i.GroupName,
+		&i.GroupAvatar,
+		&i.LastMessageID,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ConversationType,
 	)
 	return i, err
 }
@@ -112,7 +172,7 @@ func (q *Queries) GetConversationMembers(ctx context.Context, conversationID int
 }
 
 const getUserConversations = `-- name: GetUserConversations :many
-SELECT c.id, c.is_group, c.group_owner_id, c.group_name, c.group_avatar, c.last_message_id, c.last_message_at, c.created_at, c.updated_at
+SELECT c.id, c.is_group, c.group_owner_id, c.group_name, c.group_avatar, c.last_message_id, c.last_message_at, c.created_at, c.updated_at, c.conversation_type
 FROM conversations c
 JOIN conversation_members cm
     ON cm.conversation_id = c.id
@@ -139,6 +199,7 @@ func (q *Queries) GetUserConversations(ctx context.Context, userID int64) ([]Con
 			&i.LastMessageAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ConversationType,
 		); err != nil {
 			return nil, err
 		}
@@ -166,5 +227,25 @@ type RemoveConversationMemberParams struct {
 
 func (q *Queries) RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error {
 	_, err := q.db.ExecContext(ctx, removeConversationMember, arg.ConversationID, arg.UserID)
+	return err
+}
+
+const updateConversationLastMessage = `-- name: UpdateConversationLastMessage :exec
+UPDATE conversations
+SET
+    last_message_id = $2,
+    last_message_at = $3,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateConversationLastMessageParams struct {
+	ID            int64         `json:"id"`
+	LastMessageID sql.NullInt64 `json:"last_message_id"`
+	LastMessageAt sql.NullTime  `json:"last_message_at"`
+}
+
+func (q *Queries) UpdateConversationLastMessage(ctx context.Context, arg UpdateConversationLastMessageParams) error {
+	_, err := q.db.ExecContext(ctx, updateConversationLastMessage, arg.ID, arg.LastMessageID, arg.LastMessageAt)
 	return err
 }
