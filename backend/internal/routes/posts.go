@@ -157,3 +157,89 @@ func (server *Server) handleGetPost(c *gin.Context) {
 	})
 }
 
+
+func (server *Server) handleUpdatePost(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userIDAny ,exists:= c.Get(middleware.CtxUserID)
+	if !exists {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+
+	userID,ok:= userIDAny.(int64)
+	if !exists {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+
+	postID,err := strconv.ParseInt(c.Param("post_id"),10,64)
+	if err!= nil {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid post ID",nil)
+		return
+	}
+
+	post,err := server.queries.GetPostByID(ctx,postID)
+	if err != nil {
+		if errors.Is(err,sql.ErrNoRows) {
+			utils.JSON(c,http.StatusNotFound,false,"post not found",nil)
+			return
+		}
+		utils.JSON(c,http.StatusInternalServerError,false,"Failed to fetch post",nil)
+		return
+	}
+
+	if post.AuthorID != userID {
+		utils.JSON(c,http.StatusForbidden,false,"You can only edit your own posts",nil)
+		return
+	}
+
+	var req struct{
+		Content         string `json:"content"`
+		BackgroundColor string `json:"background_color"`
+		Privacy         string `json:"privacy"`
+	}
+
+	if err := c.ShouldBindJSON(&req);err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request body", nil)
+		return
+	}
+
+	bgColor := post.BackgroundColor
+	if req.BackgroundColor != "" {
+		bgColor = req.BackgroundColor
+	}
+
+	if req.Privacy == "" && req.Privacy != "public" && req.Privacy != "private" && req.Privacy != "friends" {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request privacy",nil)
+		return
+	}
+
+	privacy := post.Privacy
+	if req.Privacy != "" {
+		privacy = db.PostPrivacy(req.Privacy)
+	}
+
+	content := post.Content
+	if req.Content != "" {
+		content = req.Content
+	}
+
+	updatedPost,err := server.queries.UpdatePost(ctx,db.UpdatePostParams{
+		ID: postID,
+		Content: content,
+		BackgroundColor: bgColor,
+		Privacy: privacy,
+	})
+
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to update post", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Post updated successfully", gin.H{
+		"post": updatedPost,
+	})
+	
+}
