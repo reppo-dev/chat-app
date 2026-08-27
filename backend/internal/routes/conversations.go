@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -32,4 +33,17 @@ func parseConversationID(c *gin.Context) (int64,bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+func (server *Server) isMemberOfConversation(ctx context.Context,conversation ,userID int64) bool {
+	members,err:= server.queries.GetConversationMembers(ctx,conversation)
+	if err != nil {
+		return false
+	}
+	for _, m := range members {
+		if m.ID == userID {
+			return true
+		}
+	}
+	return false
 }
