@@ -169,7 +169,7 @@ func (server *Server) handleUpdatePost(c *gin.Context) {
 	}
 
 	userID,ok:= userIDAny.(int64)
-	if !exists {
+	if !ok {
 		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
 		return
 	}
@@ -288,4 +288,36 @@ func (server *Server) handleDeletePost(c *gin.Context) {
 	}
 
 	utils.JSON(c, http.StatusOK, true, "Post deleted successfully", nil)
+}
+
+
+func (server *Server) handleGetUserPosts(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid user ID", nil)
+		return
+	}
+
+	limit := int32(20)
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.ParseInt(l, 10, 32); err == nil && parsed > 0 && parsed <= 100 {
+			limit = int32(parsed)
+		}
+	}
+
+	posts, err := server.queries.GetPostsByUser(ctx, db.GetPostsByUserParams{
+		AuthorID: userID,
+		Limit:    limit,
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch posts", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Posts fetched", gin.H{
+		"posts": posts,
+	})
 }
