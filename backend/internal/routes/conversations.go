@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
 	"github.com/reppo-dev/chat-app/internal/middleware"
 	"github.com/reppo-dev/chat-app/internal/utils"
 )
@@ -46,4 +47,12 @@ func (server *Server) isMemberOfConversation(ctx context.Context,conversation ,u
 		}
 	}
 	return false
+}
+
+func (server *Server) getConversationMember(ctx context.Context, conversationID int64) []db.Users {
+	members,err := server.queries.GetConversationMembers(ctx,conversationID)
+	if err != nil {
+		return []db.Users{}
+	}
+	return members
 }
