@@ -45,3 +45,18 @@ FROM posts
 WHERE author_id = $1
 ORDER BY created_at DESC
 LIMIT $2;
+
+
+-- name: GetFeedPosts :many
+SELECT p.*
+FROM posts p
+WHERE p.author_id IN (
+    SELECT f.friend_id FROM friendships f WHERE f.user_id = $1
+    UNION
+    SELECT f.user_id FROM friendships f WHERE f.friend_id = $1
+    UNION
+    SELECT $1
+)
+ORDER BY p.created_at DESC
+LIMIT $2
+OFFSET $3;

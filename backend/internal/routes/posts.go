@@ -120,12 +120,12 @@ func (server *Server) handleGetPost(c *gin.Context) {
 	}
 
 	if post.AuthorID == userID {
-   		// صاحب پست است؛ همیشه اجازه دارد
+		
 	} else {
-    	// حالا privacy را بررسی کن
+		
     	switch post.Privacy {
     	case db.PostPrivacyPublic:
-        	// اجازه دارد
+			
 
 	    case db.PostPrivacyFriends:
     	    isFriend, err := server.queries.IsFriend(ctx, db.IsFriendParams{
@@ -295,7 +295,18 @@ func (server *Server) handleGetUserPosts(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	userID, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	userIDAny, exists := c.Get(middleware.CtxUserID)
+	if !exists {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+	userID, ok := userIDAny.(int64)
+	if !ok {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+
+	userId, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
 	if err != nil {
 		utils.JSON(c, http.StatusBadRequest, false, "Invalid user ID", nil)
 		return
@@ -309,15 +320,128 @@ func (server *Server) handleGetUserPosts(c *gin.Context) {
 	}
 
 	posts, err := server.queries.GetPostsByUser(ctx, db.GetPostsByUserParams{
-		AuthorID: userID,
+		AuthorID: userId,
 		Limit:    limit,
 	})
+
+	
 	if err != nil {
 		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch posts", nil)
 		return
 	}
 
+	filteredPosts := make([]db.Posts, 0, len(posts))
+
+	for _, post := range posts {
+	    switch post.Privacy {
+	    case db.PostPrivacyPublic:	
+	        filteredPosts = append(filteredPosts, post)
+
+	    case db.PostPrivacyPrivate:	
+	        if post.AuthorID == userID {
+	            filteredPosts = append(filteredPosts, post)
+	        }
+
+    	case db.PostPrivacyFriends:
+    	    if post.AuthorID == userID {
+    	        filteredPosts = append(filteredPosts, post)
+    	        continue
+    	    }
+
+    	    isFriend, err := server.queries.IsFriend(ctx, db.IsFriendParams{
+    	        UserID:   userID,
+    	        FriendID: post.AuthorID,
+    	    })
+    	    if err != nil {
+    	        utils.JSON(c, http.StatusInternalServerError, false, "Failed to check friendship", nil)
+    	        return
+    	    }
+
+    	    if isFriend {
+    	        filteredPosts = append(filteredPosts, post)
+    	    }
+    	}
+	}
+
 	utils.JSON(c, http.StatusOK, true, "Posts fetched", gin.H{
-		"posts": posts,
+		"posts": filteredPosts,
+	})
+}
+
+
+func (server *Server) handleGetFeed(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userIDAny, exists := c.Get(middleware.CtxUserID)
+	if !exists {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+	userID, ok := userIDAny.(int64)
+	if !ok {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+
+	limit := int32(20)
+	offset := int32(0)
+
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.ParseInt(l, 10, 32); err == nil && parsed > 0 && parsed <= 100 {
+			limit = int32(parsed)
+		}
+	}
+	if o := c.Query("offset"); o != "" {
+		if parsed, err := strconv.ParseInt(o, 10, 32); err == nil && parsed >= 0 {
+			offset = int32(parsed)
+		}
+	}
+
+	posts, err := server.queries.GetFeedPosts(ctx, db.GetFeedPostsParams{
+		UserID: userID,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch feed", nil)
+		return
+	}
+
+	filteredPosts := make([]db.Posts, 0, len(posts))
+
+	for _, post := range posts {
+	    switch post.Privacy {
+	    case db.PostPrivacyPublic:	
+	        filteredPosts = append(filteredPosts, post)
+
+	    case db.PostPrivacyPrivate:	
+	        if post.AuthorID == userID {
+	            filteredPosts = append(filteredPosts, post)
+	        }
+
+    	case db.PostPrivacyFriends:
+    	    if post.AuthorID == userID {
+    	        filteredPosts = append(filteredPosts, post)
+    	        continue
+    	    }
+
+    	    isFriend, err := server.queries.IsFriend(ctx, db.IsFriendParams{
+    	        UserID:   userID,
+    	        FriendID: post.AuthorID,
+    	    })
+    	    if err != nil {
+    	        utils.JSON(c, http.StatusInternalServerError, false, "Failed to check friendship", nil)
+    	        return
+    	    }
+
+    	    if isFriend {
+    	        filteredPosts = append(filteredPosts, post)
+    	    }
+    	}
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Feed fetched", gin.H{
+		"posts": filteredPosts,
 	})
 }

@@ -32,6 +32,7 @@ type Querier interface {
 	GetCommentsByPost(ctx context.Context, postID int64) ([]Comments, error)
 	GetConversationMembers(ctx context.Context, conversationID int64) ([]Users, error)
 	GetConversationMessages(ctx context.Context, arg GetConversationMessagesParams) ([]Messages, error)
+	GetFeedPosts(ctx context.Context, arg GetFeedPostsParams) ([]Posts, error)
 	GetFriendRequestByID(ctx context.Context, id int64) (FriendRequests, error)
 	GetFriends(ctx context.Context, userID int64) ([]Users, error)
 	GetMessageByID(ctx context.Context, id int64) (Messages, error)

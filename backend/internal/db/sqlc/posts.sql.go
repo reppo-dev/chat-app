@@ -74,6 +74,65 @@ func (q *Queries) DeletePost(ctx context.Context, id int64) error {
 	return err
 }
 
+const getFeedPosts = `-- name: GetFeedPosts :many
+SELECT p.id, p.author_id, p.background_color, p.content, p.media_files, p.like_count, p.wow_count, p.love_count, p.angry_count, p.haha_count, p.sad_count, p.privacy, p.created_at, p.updated_at
+FROM posts p
+WHERE p.author_id IN (
+    SELECT f.friend_id FROM friendships f WHERE f.user_id = $1
+    UNION
+    SELECT f.user_id FROM friendships f WHERE f.friend_id = $1
+    UNION
+    SELECT $1
+)
+ORDER BY p.created_at DESC
+LIMIT $2
+OFFSET $3
+`
+
+type GetFeedPostsParams struct {
+	UserID int64 `json:"user_id"`
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) GetFeedPosts(ctx context.Context, arg GetFeedPostsParams) ([]Posts, error) {
+	rows, err := q.db.QueryContext(ctx, getFeedPosts, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Posts{}
+	for rows.Next() {
+		var i Posts
+		if err := rows.Scan(
+			&i.ID,
+			&i.AuthorID,
+			&i.BackgroundColor,
+			&i.Content,
+			&i.MediaFiles,
+			&i.LikeCount,
+			&i.WowCount,
+			&i.LoveCount,
+			&i.AngryCount,
+			&i.HahaCount,
+			&i.SadCount,
+			&i.Privacy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPostByID = `-- name: GetPostByID :one
 SELECT id, author_id, background_color, content, media_files, like_count, wow_count, love_count, angry_count, haha_count, sad_count, privacy, created_at, updated_at
 FROM posts
