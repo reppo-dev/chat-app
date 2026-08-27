@@ -243,3 +243,49 @@ func (server *Server) handleUpdatePost(c *gin.Context) {
 	})
 	
 }
+
+
+func (server *Server) handleDeletePost(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5*time.Second)
+	defer cancel()
+
+	userIDAny, exists := c.Get(middleware.CtxUserID)
+	if !exists {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+	userID, ok := userIDAny.(int64)
+	if !ok {
+		utils.JSON(c, http.StatusUnauthorized, false, "Unauthorized", nil)
+		return
+	}
+
+	postID, err := strconv.ParseInt(c.Param("post_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid post ID", nil)
+		return
+	}
+
+	post, err := server.queries.GetPostByID(ctx, postID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Post not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch post", nil)
+		return
+	}
+
+	if post.AuthorID != userID {
+		utils.JSON(c, http.StatusForbidden, false, "You can only delete your own posts", nil)
+		return
+	}
+
+	err = server.queries.DeletePost(ctx, postID)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to delete post", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Post deleted successfully", nil)
+}
