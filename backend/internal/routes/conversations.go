@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
@@ -56,3 +57,18 @@ func (server *Server) getConversationMember(ctx context.Context, conversationID 
 	}
 	return members
 }
+
+func parseConversationType(s string) (db.ConversationType, bool) {
+	switch strings.ToLower(s) {
+	case "direct":
+		return db.ConversationTypeDirect, true
+	case "group":
+		return db.ConversationTypeGroup, true
+	case "channel":
+		return db.ConversationTypeChannel, true
+	default:
+		return "", false
+	}
+}
+
+
