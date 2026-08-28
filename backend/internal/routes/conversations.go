@@ -259,3 +259,36 @@ func (server *Server) handleGetConversationByID(c *gin.Context) {
 	})
 
 }
+
+func (server *Server) handleGetConversationMembers(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userID,ok := getUserIDFromContext(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request",nil)
+		return
+	}
+
+	conversationID,ok := parseConversationID(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request body",nil)
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx,conversationID,userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	members, err := server.queries.GetConversationMembers(ctx, conversationID)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch members", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Members fetched", gin.H{
+		"members": members,
+	})
+	
+}
