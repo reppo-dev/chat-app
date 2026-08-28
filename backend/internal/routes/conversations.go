@@ -201,3 +201,24 @@ func (server *Server) handleCreateConversation(c *gin.Context) {
 	})
 
 }
+
+func (server *Server) handleGetUserConversation(c *gin.Context) {
+	ctx,cancel:= context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userID,ok := getUserIDFromContext(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request",nil)
+		return
+	}
+
+	conversations,err := server.queries.GetUserConversations(ctx,userID)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch conversations", nil)
+		return
+	}
+	
+	utils.JSON(c, http.StatusOK, true, "Conversations fetched", gin.H{
+		"conversations": conversations,
+	})
+}
