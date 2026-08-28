@@ -351,3 +351,70 @@ func (server *Server) handleAddConversationMember(c *gin.Context) {
 	utils.JSON(c, http.StatusOK, true, "Member added successfully", nil)
 }
 
+func (server *Server) handleRemoveConversationMember(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userID,ok := getUserIDFromContext(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request",nil)
+		return
+	}
+
+	conversationID,ok := parseConversationID(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request body",nil)
+		return
+	}
+
+	memberID,err := strconv.ParseInt(c.Param("member-id"),10,64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid member ID", nil)
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, conversationID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	conversation,err := server.queries.GetConversationByID(ctx,conversationID)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch conversation", nil)
+		return
+	}
+
+	switch conversation.ConversationType {
+	case db.ConversationTypeDirect:
+		utils.JSON(c, http.StatusBadRequest, false, "Cannot remove members from a direct conversation", nil)
+		return
+
+	case db.ConversationTypeChannel:
+		if !conversation.GroupOwnerID.Valid || conversation.GroupOwnerID.Int64 != userID {
+			utils.JSON(c, http.StatusForbidden, false, "Only channel owner can remove members", nil)
+			return
+		}
+		if memberID == conversation.GroupOwnerID.Int64 {
+			utils.JSON(c, http.StatusBadRequest, false, "Cannot remove the channel owner", nil)
+			return
+		}
+	case db.ConversationTypeGroup:
+		if memberID != userID {
+			if !conversation.GroupOwnerID.Valid || conversation.GroupOwnerID.Int64 != userID {
+				utils.JSON(c, http.StatusForbidden, false, "Only group owner can remove other members", nil)
+				return
+			}
+		}
+	}
+
+	err = server.queries.RemoveConversationMember(ctx,db.RemoveConversationMemberParams{
+		ConversationID: conversationID,
+		UserID: memberID,
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to remove member", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Member removed successfully", nil)
+}
