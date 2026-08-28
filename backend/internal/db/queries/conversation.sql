@@ -20,7 +20,7 @@ INSERT INTO conversation_members (
 VALUES ($1, $2);
 
 
--- name: RemoveConversationMember :exec
+-- name: RemoveConversationMember :execrows
 DELETE FROM conversation_members
 WHERE conversation_id = $1
   AND user_id = $2;
@@ -71,3 +71,7 @@ SELECT *
 FROM conversations
 WHERE id = $1
 LIMIT 1;
+
+-- name: DeleteConversation :exec
+DELETE FROM conversations
+WHERE id = $1;

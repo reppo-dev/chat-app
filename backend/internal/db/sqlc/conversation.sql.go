@@ -66,6 +66,16 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 	return i, err
 }
 
+const deleteConversation = `-- name: DeleteConversation :exec
+DELETE FROM conversations
+WHERE id = $1
+`
+
+func (q *Queries) DeleteConversation(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteConversation, id)
+	return err
+}
+
 const getConversationByID = `-- name: GetConversationByID :one
 SELECT id, is_group, group_owner_id, group_name, group_avatar, last_message_id, last_message_at, created_at, updated_at, conversation_type
 FROM conversations
@@ -216,7 +226,7 @@ func (q *Queries) GetUserConversations(ctx context.Context, userID int64) ([]Con
 	return items, nil
 }
 
-const removeConversationMember = `-- name: RemoveConversationMember :exec
+const removeConversationMember = `-- name: RemoveConversationMember :execrows
 DELETE FROM conversation_members
 WHERE conversation_id = $1
   AND user_id = $2
@@ -227,9 +237,12 @@ type RemoveConversationMemberParams struct {
 	UserID         int64 `json:"user_id"`
 }
 
-func (q *Queries) RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error {
-	_, err := q.db.ExecContext(ctx, removeConversationMember, arg.ConversationID, arg.UserID)
-	return err
+func (q *Queries) RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, removeConversationMember, arg.ConversationID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateConversationLastMessage = `-- name: UpdateConversationLastMessage :exec

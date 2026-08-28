@@ -23,6 +23,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
 	DeleteAllUserRefreshTokens(ctx context.Context, userID int64) error
 	DeleteComment(ctx context.Context, id int64) error
+	DeleteConversation(ctx context.Context, id int64) error
 	DeleteFriendRequest(ctx context.Context, id int64) error
 	DeleteFriendship(ctx context.Context, arg DeleteFriendshipParams) error
 	DeletePost(ctx context.Context, id int64) error
@@ -55,7 +56,7 @@ type Querier interface {
 	MarkMessageAsSeen(ctx context.Context, arg MarkMessageAsSeenParams) error
 	MarkNotificationAsRead(ctx context.Context, id int64) error
 	RejectFriendRequest(ctx context.Context, id int64) (FriendRequests, error)
-	RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error
+	RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) (int64, error)
 	SearchUsersByName(ctx context.Context, arg SearchUsersByNameParams) ([]Users, error)
 	SoftDeleteMessage(ctx context.Context, id int64) error
 	SoftDeleteUser(ctx context.Context, id int64) error

@@ -378,10 +378,15 @@ func (server *Server) handleRemoveConversationMember(c *gin.Context) {
 		return
 	}
 
-	conversation,err := server.queries.GetConversationByID(ctx,conversationID)
+	conversation, err := server.queries.GetConversationByID(ctx, conversationID)
 	if err != nil {
-		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch conversation", nil)
-		return
+	    if errors.Is(err, sql.ErrNoRows) {
+	        utils.JSON(c, http.StatusNotFound, false, "Conversation not found", nil)
+	        return
+	    }
+
+    	utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch conversation", nil)
+    	return
 	}
 
 	switch conversation.ConversationType {
@@ -399,21 +404,45 @@ func (server *Server) handleRemoveConversationMember(c *gin.Context) {
 			return
 		}
 	case db.ConversationTypeGroup:
-		if memberID != userID {
-			if !conversation.GroupOwnerID.Valid || conversation.GroupOwnerID.Int64 != userID {
-				utils.JSON(c, http.StatusForbidden, false, "Only group owner can remove other members", nil)
+    	if conversation.GroupOwnerID.Valid &&
+    	    conversation.GroupOwnerID.Int64 == userID &&
+    	    memberID == userID {
+				err := server.queries.DeleteConversation(ctx,conversationID)
+				if err!= nil {
+					utils.JSON(c,http.StatusInternalServerError,false,"Failed to delete group",nil)
+					return
+				}
+				utils.JSON(c, http.StatusOK, true, "Group deleted successfully", nil)
 				return
-			}
-		}
+    	}
+
+    	if memberID != userID {
+    	    if !conversation.GroupOwnerID.Valid ||
+    	        conversation.GroupOwnerID.Int64 != userID {
+    	        utils.JSON(
+    	            c,
+    	            http.StatusForbidden,
+    	            false,
+    	            "Only group owner can remove other members",
+    	            nil,
+    	        )
+    	        return
+    	    }
+    	}
 	}
 
-	err = server.queries.RemoveConversationMember(ctx,db.RemoveConversationMemberParams{
-		ConversationID: conversationID,
-		UserID: memberID,
+	rows, err := server.queries.RemoveConversationMember(ctx, db.RemoveConversationMemberParams{
+	    ConversationID: conversationID,
+	    UserID:         memberID,
 	})
 	if err != nil {
-		utils.JSON(c, http.StatusInternalServerError, false, "Failed to remove member", nil)
-		return
+	    utils.JSON(c, http.StatusInternalServerError, false, "Failed to remove member", nil)
+	    return
+	}
+
+	if rows == 0 {
+	    utils.JSON(c, http.StatusNotFound, false, "Member not found in conversation", nil)
+	    return
 	}
 
 	utils.JSON(c, http.StatusOK, true, "Member removed successfully", nil)
