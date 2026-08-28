@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -202,7 +203,7 @@ func (server *Server) handleCreateConversation(c *gin.Context) {
 
 }
 
-func (server *Server) handleGetUserConversation(c *gin.Context) {
+func (server *Server) handleGetUserConversations(c *gin.Context) {
 	ctx,cancel:= context.WithTimeout(c.Request.Context(),5 *time.Second)
 	defer cancel()
 
@@ -221,4 +222,40 @@ func (server *Server) handleGetUserConversation(c *gin.Context) {
 	utils.JSON(c, http.StatusOK, true, "Conversations fetched", gin.H{
 		"conversations": conversations,
 	})
+}
+
+func (server *Server) handleGetConversationByID(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userID,ok := getUserIDFromContext(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request",nil)
+		return
+	}
+
+	conversationID,ok := parseConversationID(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request body",nil)
+		return
+	}
+	if !server.isMemberOfConversation(ctx,conversationID,userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	conversation, err := server.queries.GetConversationByID(ctx, conversationID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Conversation not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch conversation", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Conversation fetched", gin.H{
+		"conversation": conversation,
+	})
+
 }
