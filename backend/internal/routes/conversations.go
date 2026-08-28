@@ -290,5 +290,64 @@ func (server *Server) handleGetConversationMembers(c *gin.Context) {
 	utils.JSON(c, http.StatusOK, true, "Members fetched", gin.H{
 		"members": members,
 	})
-	
 }
+
+func (server *Server) handleAddConversationMember(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userID,ok := getUserIDFromContext(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request",nil)
+		return
+	}
+
+	conversationID,ok := parseConversationID(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request body",nil)
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx,conversationID,userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	conversation,err := server.queries.GetConversationByID(ctx,conversationID)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch conversation", nil)
+		return
+	}
+
+	if conversation.ConversationType == db.ConversationTypeChannel {
+		if !conversation.GroupOwnerID.Valid || conversation.GroupOwnerID.Int64 != userID {
+			utils.JSON(c, http.StatusForbidden, false, "Only channel owner can add members", nil)
+			return
+		}
+	}
+
+	var req struct {
+		UserID int64 `json:"user_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request body", nil)
+		return
+	}
+
+	if server.isMemberOfConversation(ctx, conversationID, req.UserID) {
+		utils.JSON(c, http.StatusConflict, false, "User is already a member", nil)
+		return
+	}
+
+	err = server.queries.AddConversationMember(ctx, db.AddConversationMemberParams{
+		ConversationID: conversationID,
+		UserID:         req.UserID,
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to add member", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Member added successfully", nil)
+}
+
