@@ -30,7 +30,7 @@ func (q *Queries) AddConversationMember(ctx context.Context, arg AddConversation
 
 const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversations (
-    is_group,
+    conversation_type,
     group_owner_id,
     group_name
 )
@@ -43,13 +43,13 @@ RETURNING id, is_group, group_owner_id, group_name, group_avatar, last_message_i
 `
 
 type CreateConversationParams struct {
-	IsGroup      bool           `json:"is_group"`
-	GroupOwnerID sql.NullInt64  `json:"group_owner_id"`
-	GroupName    sql.NullString `json:"group_name"`
+	ConversationType ConversationType `json:"conversation_type"`
+	GroupOwnerID     sql.NullInt64    `json:"group_owner_id"`
+	GroupName        sql.NullString   `json:"group_name"`
 }
 
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversations, error) {
-	row := q.db.QueryRowContext(ctx, createConversation, arg.IsGroup, arg.GroupOwnerID, arg.GroupName)
+	row := q.db.QueryRowContext(ctx, createConversation, arg.ConversationType, arg.GroupOwnerID, arg.GroupName)
 	var i Conversations
 	err := row.Scan(
 		&i.ID,
@@ -94,11 +94,13 @@ func (q *Queries) GetConversationByID(ctx context.Context, id int64) (Conversati
 const getConversationByMembers = `-- name: GetConversationByMembers :one
 SELECT c.id, c.is_group, c.group_owner_id, c.group_name, c.group_avatar, c.last_message_id, c.last_message_at, c.created_at, c.updated_at, c.conversation_type
 FROM conversations c
-JOIN conversation_members cm1 ON cm1.conversation_id = c.id
-JOIN conversation_members cm2 ON cm2.conversation_id = c.id
+JOIN conversation_members cm1
+    ON cm1.conversation_id = c.id
+JOIN conversation_members cm2
+    ON cm2.conversation_id = c.id
 WHERE cm1.user_id = $1
   AND cm2.user_id = $2
-  AND c.is_group = FALSE
+  AND c.conversation_type = 'direct'
 LIMIT 1
 `
 

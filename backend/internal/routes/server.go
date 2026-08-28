@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"database/sql"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
@@ -9,13 +11,14 @@ import (
 type Server struct {
 	queries *db.Queries
 	router *gin.Engine
+	db      *sql.DB
 }
 
 func (server *Server) StartServer(address string) error {
 	return server.router.Run(address)
 }
 
-func NewServer(queries *db.Queries) *Server {
+func NewServer(queries *db.Queries,dbconn *sql.DB) *Server {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -28,6 +31,7 @@ func NewServer(queries *db.Queries) *Server {
 	server:= &Server{
 		queries: queries,
 		router: router,
+		db: dbconn,
 	}
 
 	SetUpRouter(router,server)

@@ -2,9 +2,11 @@ package routes
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
@@ -72,3 +74,130 @@ func parseConversationType(s string) (db.ConversationType, bool) {
 }
 
 
+func (server *Server) handleCreateConversation(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userID, ok:= getUserIDFromContext(c)
+	if !ok {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request",nil)
+		return
+	}
+
+	var req struct{
+		ConversationType string  `json:"conversation_type"`
+		MemberIDs        []int64 `json:"member_ids"`
+		GroupName        *string `json:"group_name"`
+	}
+
+	if err := c.ShouldBindJSON(&req);err != nil {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid request body",nil)
+		return
+	}
+
+	convType,valid := parseConversationType(req.ConversationType)
+
+	if !valid {
+		utils.JSON(c,http.StatusBadRequest,false,"Invalid conversation",nil)
+		return
+	}
+
+	if len(req.MemberIDs) == 0 {
+		utils.JSON(c, http.StatusBadRequest, false, "At least one member is required", nil)
+		return
+	}
+
+	for _,id := range req.MemberIDs{
+		if id == userID{
+			utils.JSON(c, http.StatusBadRequest, false, "You cannot add yourself as a member", nil)
+			return
+		}
+	}
+
+	switch convType {
+	case db.ConversationTypeDirect:
+		if len(req.MemberIDs) != 1 {
+		    utils.JSON(c, http.StatusBadRequest, false, "Direct conversation requires exactly one member", nil)
+		    return
+		}
+
+		existingConv , err := server.queries.GetConversationByMembers(ctx,db.GetConversationByMembersParams{
+			UserID: userID,
+			UserID_2: req.MemberIDs[0],
+		})
+
+		if err == nil {
+			utils.JSON(c, http.StatusOK, true, "Conversation already exists", gin.H{
+				"conversation": existingConv,
+			})
+			return
+		}
+
+	case db.ConversationTypeGroup,db.ConversationTypeChannel:
+		if req.GroupName == nil || strings.TrimSpace(*req.GroupName) == "" {
+			utils.JSON(c, http.StatusBadRequest, false, "Group/channel conversation requires a group_name", nil)
+			return
+		}
+	}
+
+	var groupName sql.NullString
+	if req.GroupName != nil && strings.TrimSpace(*req.GroupName) != "" {
+		groupName = sql.NullString{Valid: true,String: *req.GroupName}
+	}
+
+	var groupOwnerID sql.NullInt64
+	if convType == db.ConversationTypeGroup || convType == db.ConversationTypeChannel {
+		groupOwnerID = sql.NullInt64{Valid: true,Int64: userID}
+	}
+
+	tx ,err := server.db.BeginTx(ctx,nil)
+	if err != nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Failed to start transaction",nil)
+		return
+	}
+
+	defer tx.Rollback()
+
+	qtx:= server.queries.WithTx(tx)
+
+	conversation, err := qtx.CreateConversation(ctx,db.CreateConversationParams{
+		GroupOwnerID: groupOwnerID,
+		ConversationType: convType,
+		GroupName: groupName,
+	})
+
+	if err != nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Failed to create conversation",nil)
+		return
+	}
+
+	err = qtx.AddConversationMember(ctx,db.AddConversationMemberParams{
+		ConversationID: conversation.ID,
+		UserID: userID,
+	})
+	if err != nil {
+		utils.JSON(c,http.StatusInternalServerError,false,"Failed to add member",nil)
+		return
+	}
+
+	for _,memberID := range req.MemberIDs{
+		err = qtx.AddConversationMember(ctx,db.AddConversationMemberParams{
+			ConversationID: conversation.ID,
+			UserID: memberID,
+		})
+		if err != nil {
+			utils.JSON(c,http.StatusInternalServerError,false,"Failed to add member",nil,)
+			return
+		}
+	}
+
+	if err := tx.Commit();err != nil{
+		utils.JSON(c,http.StatusInternalServerError,false,"Failed to save conversation",nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusCreated, true, "Conversation created successfully", gin.H{
+		"conversation": conversation,
+	})
+
+}

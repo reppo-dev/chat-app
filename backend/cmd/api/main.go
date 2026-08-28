@@ -29,7 +29,7 @@ func main() {
 
 	queries := db.New(dbconn)
 
-	server := routes.NewServer(queries)
+	server := routes.NewServer(queries,dbconn)
 
 	if err := server.StartServer(cfg.HTTP_ADDRESS); err!=nil{
 		log.Fatal("cannot start server",err)
