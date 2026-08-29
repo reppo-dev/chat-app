@@ -103,7 +103,7 @@ func (h *Hub) RegisterClientConnection(client *Client) {
 		conns = make(map[*Client]struct{})
 		h.Clients[client.User.ID] = conns
 	}
-	
+
 	conns[client] = struct{}{}
 	firstConnection := len(conns) == 1
 	h.mu.Unlock()
@@ -125,3 +125,26 @@ func (h *Hub) RegisterClientConnection(client *Client) {
 	}
 }
 
+func (h *Hub) UnrefisterClientConnection(client *Client) {
+	h.mu.Lock()
+	conns ,ok := h.Clients[client.User.ID]
+	if !ok {
+		h.mu.Unlock()
+		return
+	}
+
+	delete(conns,client)
+	lastConnection := len(conns) == 0
+	if lastConnection {
+		delete(h.Clients,client.User.ID)
+	}
+	h.mu.Unlock()
+
+	if lastConnection {
+		userMap := models.UserToMap(client.User)
+		h.BroadcastToAll(Event{
+			EventType: string(EventUserOffline),
+			Payload: userMap,
+		})
+	}
+}
