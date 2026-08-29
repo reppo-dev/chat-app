@@ -1,9 +1,12 @@
 package realtime
 
 import (
+	"context"
+	"log"
 	"sync"
 
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
+	"github.com/reppo-dev/chat-app/internal/models"
 )
 
 type Hub struct {
@@ -71,22 +74,54 @@ func (h *Hub) SendEventToUser(userID int64,event Event) {
 }
 
 
-func (h *Hub) SendEventToUserIds(userIds []int64,sendId int64,eventType EventType,payload map[string]any) {
+func (h *Hub) SendEventToUserIds(userIds []int64,sendId int64,event Event) {
 	for _, id := range userIds{
-		h.mu.RLock()
-		conns,ok := h.Clients[id]
-		h.mu.RUnlock()
-		if !ok {
-			continue
-		}
-
-		for c:= range conns{
-			c.SendEvent(Event{
-				EventType: string(eventType),
-				Payload: payload,
-			})
-		}
+		h.SendEventToUser(id,event)
 	}
 }
 
+
+func (h *Hub) SendEventToConversation(ctx context.Context,conversationID int64,excludeUserID int64,event Event) {
+	members,err := h.queries.GetConversationMembers(ctx,conversationID)
+	if err != nil {
+		log.Printf("error fetching conversation members for conv %d: %v",conversationID,err)
+		return
+	}
+
+	for _,member := range members {
+		if member.ID == excludeUserID {
+			continue
+		}
+		h.SendEventToUser(member.ID,event)
+	}
+}
+
+func (h *Hub) RegisterClientConnection(client *Client) {
+	h.mu.Lock()
+	conns,ok := h.Clients[client.User.ID]
+	if !ok {
+		conns = make(map[*Client]struct{})
+		h.Clients[client.User.ID] = conns
+	}
+	
+	conns[client] = struct{}{}
+	firstConnection := len(conns) == 1
+	h.mu.Unlock()
+
+	onlineIDs := h.GetOnlineUserIDs()
+	client.SendEvent(Event{
+		EventType: string(EventCurrentUsers),
+		Payload: map[string]any{
+			"online_user_ids": onlineIDs,
+		},
+	})
+
+	if firstConnection {
+		userMap := models.UserToMap(client.User)
+		h.BroadcastToAll(Event{
+			EventType: string(EventCurrentUsers),
+			Payload: userMap,
+		})
+	}
+}
 
