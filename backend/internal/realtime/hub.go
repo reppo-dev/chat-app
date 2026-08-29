@@ -1,7 +1,6 @@
 package realtime
 
 import (
-	"log"
 	"sync"
 
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
@@ -15,23 +14,35 @@ type Hub struct {
 
 func NewHub(queries *db.Queries) *Hub {
 	return &Hub{
+		Clients: make(map[int64]map[*Client]struct{}),
 		queries: queries,
 	}
 }
 
-func (h *Hub) broadcastToAll(event Event) {
+func (h *Hub) BroadcastToAll(event Event) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+
 	for _, conns := range h.Clients{
 		for c := range conns {
-			select{
-			case c.Send <- event:
-			default:
-				log.Printf("waring: dropped event for client %d, channel full",c.User.ID)
-			}
+			c.SendEvent(event)
 		}
 	}
 }
+
+func (h *Hub) GetOnlineUserIDs() []int64 {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	ids := make([]int64,0,len(h.Clients))
+	for id , conns := range h.Clients{
+		if len(conns) > 0 {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 
 func (h *Hub) GetClients(userId int64) ([]*Client,bool) {
 	h.mu.RLock()
@@ -68,3 +79,5 @@ func (h *Hub) SendEventToUserIds(userIds []int64,sendId int64,eventType EventTyp
 		}
 	}
 }
+
+

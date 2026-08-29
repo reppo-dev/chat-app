@@ -1,11 +1,19 @@
 package realtime
 
 import (
+	"log"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
+)
+
+const(
+	writeWait			= 10 * time.Second
+	pongWait			= 60 * time.Second
+	pingPeriod			= (pongWait * 9) / 10
+	maxMessageSiz		= 512 * 1024
 )
 
 type Client struct {
@@ -27,6 +35,7 @@ func (c *Client) SendEvent(event Event) {
 	select{
 	case c.Send <- event:
 	default:
+		log.Printf("warning: dropped event for client %d, channel full",c.User.ID)
 	}
 }
 
@@ -39,3 +48,4 @@ func (c *Client) Close() {
 		close(c.Send)
 	})
 }
+
