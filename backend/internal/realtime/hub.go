@@ -49,3 +49,22 @@ func (h *Hub) GetClients(userId int64) ([]*Client,bool) {
 
 	return clients,true
 }
+
+
+func (h *Hub) SendEventToUserIds(userIds []int64,sendId int64,eventType EventType,payload map[string]any) {
+	for _, id := range userIds{
+		h.mu.RLock()
+		conns,ok := h.Clients[id]
+		h.mu.RUnlock()
+		if !ok {
+			continue
+		}
+
+		for c:= range conns{
+			c.SendEvent(Event{
+				EventType: string(eventType),
+				Payload: payload,
+			})
+		}
+	}
+}
