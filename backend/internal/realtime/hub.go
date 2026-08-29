@@ -51,22 +51,23 @@ func (h *Hub) IsUserOnline(userID int64) bool {
 	return ok && len(conns) > 0
 }
 
-
-func (h *Hub) GetClients(userId int64) ([]*Client,bool) {
+func (h *Hub) SendEventToUser(userID int64,event Event) {
 	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	conns , ok := h.Clients[userId]
+	conns ,ok := h.Clients[userID]
 	if !ok || len(conns) == 0 {
-		return nil,false
+		h.mu.RUnlock()
+		return
 	}
 
-	clients := make([]*Client,0,len(conns))
+	targetgroup := make([]*Client,0,len(conns))
 	for c := range conns{
-		clients = append(clients,c)
+		targetgroup = append(targetgroup, c)
 	}
+	h.mu.RUnlock()
 
-	return clients,true
+	for _ , c := range targetgroup {
+		c.SendEvent(event)
+	}
 }
 
 
