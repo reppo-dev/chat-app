@@ -43,6 +43,14 @@ func (h *Hub) GetOnlineUserIDs() []int64 {
 	return ids
 }
 
+func (h *Hub) IsUserOnline(userID int64) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	conns , ok := h.Clients[userID]
+	return ok && len(conns) > 0
+}
+
 
 func (h *Hub) GetClients(userId int64) ([]*Client,bool) {
 	h.mu.RLock()
