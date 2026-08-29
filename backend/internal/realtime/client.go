@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
@@ -22,3 +23,19 @@ func NewClient(user *db.Users,conn *websocket.Conn) *Client {
 	}
 }
 
+func (c *Client) SendEvent(event Event) {
+	select{
+	case c.Send <- event:
+	default:
+	}
+}
+
+func (c *Client) Close() {
+	c.once.Do(func() {
+		if c.Conn != nil {
+			_ = c.Conn.WriteControl(websocket.CloseMessage,websocket.FormatCloseMessage(websocket.CloseNormalClosure,"Closing connection"),time.Now().Add(time.Second))
+			_ = c.Conn.Close()
+		}
+		close(c.Send)
+	})
+}
