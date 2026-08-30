@@ -148,3 +148,44 @@ func (server *Server) handleCreateComment(c *gin.Context) {
 		"comment": comment,
 	})
 }
+
+func (server *Server) handleGetpostCommits(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	postID, err := strconv.ParseInt(c.Param("post_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid post ID", nil)
+		return
+	}
+
+	post, err := server.queries.GetPostByID(ctx, postID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Post not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch post", nil)
+		return
+	}
+
+	if !server.checkPostAccess(ctx, post, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You do not have permission to view this post", nil)
+		return
+	}
+
+	comments, err := server.queries.GetCommentsByPost(ctx, postID)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch comments", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Comments fetched", gin.H{
+		"comments": comments,
+	})
+}
