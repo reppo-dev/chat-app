@@ -6,12 +6,14 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
+	"github.com/reppo-dev/chat-app/internal/realtime"
 )
 
 type Server struct {
 	queries *db.Queries
-	router *gin.Engine
+	router  *gin.Engine
 	db      *sql.DB
+	hub		*realtime.Hub
 }
 
 func (server *Server) StartServer(address string) error {
@@ -28,10 +30,13 @@ func NewServer(queries *db.Queries,dbconn *sql.DB) *Server {
 		AllowCredentials: true,
 	}))
 
+	hub := realtime.NewHub(queries)
+
 	server:= &Server{
 		queries: queries,
 		router: router,
 		db: dbconn,
+		hub: hub,
 	}
 
 	SetUpRouter(router,server)
