@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -250,3 +251,46 @@ func (server *Server) handleUpdateComment(c *gin.Context) {
 }
 
 
+func (server *Server) handleDeleteComment(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 *time.Second)
+	defer cancel()
+
+	userID , ok := getUserIDFromContext(c)
+	if!ok {
+		return
+	}
+
+	commentID,err := strconv.ParseInt(c.Param("comment_id"),10,64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid comment ID", nil)
+		return
+	}
+
+	comment,err:= server.queries.GetCommentByID(ctx,commentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Comment not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch comment", nil)
+		return
+	}
+
+	post, err := server.queries.GetPostByID(ctx, comment.PostID)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to verify post ownership", nil)
+		return
+	}
+
+	if comment.UserID != userID && post.AuthorID != userID {
+		utils.JSON(c, http.StatusForbidden, false, "You do not have permission to delete this comment", nil)
+		return
+	}
+
+	if err := server.queries.DeleteComment(ctx, commentID); err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to delete comment", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, fmt.Sprintf("Comment %d deleted successfully", commentID), nil)
+}
