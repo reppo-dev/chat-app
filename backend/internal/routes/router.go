@@ -28,6 +28,13 @@ func SetUpRouter(router *gin.Engine,server *Server) {
 	router.PUT("/api/posts/:post_id", middleware.Authenticate(), server.handleUpdatePost)
 	router.DELETE("/api/posts/:post_id", middleware.Authenticate(), server.handleDeletePost)
 
+	// Comment routes
+	router.POST("/api/posts/:post_id/comments", middleware.Authenticate(), server.handleCreateComment)
+	router.GET("/api/posts/:post_id/comments", middleware.Authenticate(), server.handleGetPostComments)
+	router.PUT("/api/comments/:comment_id", middleware.Authenticate(), server.handleUpdateComment)
+	router.DELETE("/api/comments/:comment_id", middleware.Authenticate(), server.handleDeleteComment)
+
+
 	// Conversation Routes
 	router.POST("/api/conversations", middleware.Authenticate(), server.handleCreateConversation)
 	router.GET("/api/conversations", middleware.Authenticate(), server.handleGetUserConversations)

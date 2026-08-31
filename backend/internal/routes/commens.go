@@ -149,7 +149,7 @@ func (server *Server) handleCreateComment(c *gin.Context) {
 	})
 }
 
-func (server *Server) handleGetpostCommits(c *gin.Context) {
+func (server *Server) handleGetPostComments(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -189,3 +189,64 @@ func (server *Server) handleGetpostCommits(c *gin.Context) {
 		"comments": comments,
 	})
 }
+
+func (server *Server) handleUpdateComment(c *gin.Context) {
+	ctx,cancel := context.WithTimeout(c.Request.Context(),5 * time.Second)
+	defer cancel()
+
+	userID,ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	commentID,err := strconv.ParseInt(c.Param("comment_id"),10,64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid comment ID", nil)
+		return
+	}
+
+	comment,err := server.queries.GetCommentByID(ctx,commentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Comment not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch comment", nil)
+		return
+	}
+
+	if comment.UserID != userID {
+		utils.JSON(c, http.StatusForbidden, false, "You can only edit your own comments", nil)
+		return
+	}
+
+	var req struct {
+		Content string `json:"content"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request body", nil)
+		return
+	}
+
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Content == "" {
+		utils.JSON(c, http.StatusBadRequest, false, "Comment content cannot be empty", nil)
+		return
+	}
+
+	updated , err := server.queries.UpdateComment(ctx,db.UpdateCommentParams{
+		ID: commentID,
+		Content: req.Content,
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to update comment", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Comment updated successfully", gin.H{
+		"comment": updated,
+	})
+}
+
+
