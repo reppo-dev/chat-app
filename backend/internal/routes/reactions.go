@@ -189,3 +189,30 @@ func (server *Server) handleGetReaction(c *gin.Context) {
 		"reaction": reaction,
 	})
 }
+
+
+func (server *Server) handleDeleteReaction(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	postID, err := strconv.ParseInt(c.Param("post_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid post ID", nil)
+		return
+	}
+
+	if err := server.queries.DeleteReaction(ctx, db.DeleteReactionParams{
+		UserID: userID,
+		PostID: postID,
+	}); err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to delete reaction", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Reaction deleted successfully", nil)
+}
