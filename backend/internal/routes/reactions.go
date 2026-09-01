@@ -34,7 +34,7 @@ func parseReactionType(s string) (db.ReactionType, bool) {
 	}
 }
 
-func (server *Server) handlerCreateOrUpdateReaction(c *gin.Context) {
+func (server *Server) handleCreateOrUpdateReaction(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 

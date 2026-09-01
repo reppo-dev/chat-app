@@ -34,6 +34,11 @@ func SetUpRouter(router *gin.Engine,server *Server) {
 	router.PUT("/api/comments/:comment_id", middleware.Authenticate(), server.handleUpdateComment)
 	router.DELETE("/api/comments/:comment_id", middleware.Authenticate(), server.handleDeleteComment)
 
+	// Reaction routes
+	router.POST("/api/posts/:post_id/reactions", middleware.Authenticate(), server.handleCreateOrUpdateReaction)
+	router.GET("/api/posts/:post_id/reactions", middleware.Authenticate(), server.handleGetReaction)
+	router.DELETE("/api/posts/:post_id/reactions", middleware.Authenticate(), server.handleDeleteReaction)
+
 
 	// Conversation Routes
 	router.POST("/api/conversations", middleware.Authenticate(), server.handleCreateConversation)
@@ -43,5 +48,5 @@ func SetUpRouter(router *gin.Engine,server *Server) {
 	router.POST("/api/conversations/:conversation_id/members", middleware.Authenticate(), server.handleAddConversationMember)
 	router.DELETE("/api/conversations/:conversation_id/members/:member_id", middleware.Authenticate(), server.handleRemoveConversationMember)
 
-
+	
 }
