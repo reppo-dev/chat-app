@@ -43,5 +43,5 @@ func SetUpRouter(router *gin.Engine,server *Server) {
 	router.POST("/api/conversations/:conversation_id/members", middleware.Authenticate(), server.handleAddConversationMember)
 	router.DELETE("/api/conversations/:conversation_id/members/:member_id", middleware.Authenticate(), server.handleRemoveConversationMember)
 
-	
+
 }
