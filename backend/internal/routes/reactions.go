@@ -155,3 +155,37 @@ func (server *Server) handlerCreateOrUpdateReaction(c *gin.Context) {
 }
 
 
+func (server *Server) handleGetReaction(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	postID, err := strconv.ParseInt(c.Param("post_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid post ID", nil)
+		return
+	}
+
+	reaction, err := server.queries.GetReaction(ctx, db.GetReactionParams{
+		UserID: userID,
+		PostID: postID,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusOK, true, "No reaction", gin.H{
+				"reaction": nil,
+			})
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch reaction", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Reaction fetched", gin.H{
+		"reaction": reaction,
+	})
+}
