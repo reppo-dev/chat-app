@@ -299,3 +299,54 @@ func (server *Server) handleDeleteMessage(c *gin.Context) {
 	utils.JSON(c, http.StatusOK, true, "Message deleted successfully", nil)
 }
 
+func (server *Server) handleMarkMessageSeen(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg, err := server.queries.GetMessageByID(ctx, msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, msg.ConversationID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	if err := server.queries.MarkMessageAsSeen(ctx,db.MarkMessageAsSeenParams{
+		MessageID: msgID,
+		UserID: userID,
+	}); err != nil{
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to mark message as seen", nil)
+		return
+	}
+
+	if msg.SenderID != userID {
+		server.hub.SendEventToUser(msg.SenderID, realtime.Event{
+			EventType: string(realtime.EventRead),
+			Payload: gin.H{
+				"message_id":      msgID,
+				"conversation_id": msg.ConversationID,
+				"seen_by_user_id": userID,
+			},
+		})
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Message marked as seen", nil)
+}
