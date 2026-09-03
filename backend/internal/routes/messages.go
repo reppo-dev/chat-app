@@ -251,3 +251,51 @@ func (server *Server) handleUpdateMessage(c *gin.Context) {
 		"message": updated,
 	})
 }
+
+
+func (server *Server) handleDeleteMessage(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg, err := server.queries.GetMessageByID(ctx, msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if msg.SenderID != userID {
+		utils.JSON(c, http.StatusForbidden, false, "You can only delete your own messages", nil)
+		return
+	}
+
+	if err := server.queries.SoftDeleteMessage(ctx, msgID); err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to delete message", nil)
+		return
+	}
+
+	server.hub.SendEventToConversation(ctx, msg.ConversationID, userID, realtime.Event{
+		EventType: string(realtime.EventMessageDeleted),
+		Payload: gin.H{
+			"message_id":      msgID,
+			"conversation_id": msg.ConversationID,
+		},
+	})
+
+	utils.JSON(c, http.StatusOK, true, "Message deleted successfully", nil)
+}
+
