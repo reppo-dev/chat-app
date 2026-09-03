@@ -40,3 +40,26 @@ func (server *Server) handleGetUserNotifications(c *gin.Context) {
 		"notifications": notifications,
 	})
 }
+
+func (server *Server) handleMarkNotificationRead(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	_, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	notifID, err := strconv.ParseInt(c.Param("notification_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid notification ID", nil)
+		return
+	}
+
+	if err := server.queries.MarkNotificationAsRead(ctx, notifID); err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to mark notification as read", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Notification marked as read", nil)
+}
