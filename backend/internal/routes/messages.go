@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -145,3 +146,108 @@ func (server *Server) handleGetConversationMessages(c *gin.Context) {
 	})
 }
 
+
+func (server *Server) handleGetMessageByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg,err := server.queries.GetMessageByID(ctx,msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, msg.ConversationID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not authorized to view this message", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Message fetched", gin.H{
+		"message": msg,
+	})
+}
+
+func (server *Server) handleUpdateMessage(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg, err := server.queries.GetMessageByID(ctx, msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if msg.SenderID != userID {
+		utils.JSON(c, http.StatusForbidden, false, "You can only edit your own messages", nil)
+		return
+	}
+
+	if msg.IsDeleted {
+		utils.JSON(c, http.StatusBadRequest, false, "Cannot edit a deleted message", nil)
+		return
+	}
+
+	var req struct {
+		Text string `json:"text"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request body", nil)
+		return
+	}
+
+	req.Text = strings.TrimSpace(req.Text)
+	if req.Text == "" {
+		utils.JSON(c, http.StatusBadRequest, false, "Text is required", nil)
+		return
+	}
+
+	updated,err := server.queries.UpdateMessage(ctx,db.UpdateMessageParams{
+		ID: msgID,
+		Text: sql.NullString{Valid: true,String: req.Text},
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to update message", nil)
+		return
+	}
+
+	server.hub.SendEventToConversation(ctx,msg.ConversationID,userID,realtime.Event{
+		EventType: string(realtime.EventMessageUpdated),
+		Payload: gin.H{
+			"message":updated,
+		},
+	})
+
+	utils.JSON(c, http.StatusOK, true, "Message updated successfully", gin.H{
+		"message": updated,
+	})
+}
