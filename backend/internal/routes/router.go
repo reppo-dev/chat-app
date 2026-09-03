@@ -48,5 +48,13 @@ func SetUpRouter(router *gin.Engine,server *Server) {
 	router.POST("/api/conversations/:conversation_id/members", middleware.Authenticate(), server.handleAddConversationMember)
 	router.DELETE("/api/conversations/:conversation_id/members/:member_id", middleware.Authenticate(), server.handleRemoveConversationMember)
 
+	// Message routes
+	router.POST("/api/conversations/:conversation_id/messages", middleware.Authenticate(), server.handleSendMessage)
+	router.GET("/api/conversations/:conversation_id/messages", middleware.Authenticate(), server.handleGetConversationMessages)
+	router.GET("/api/messages/:message_id", middleware.Authenticate(), server.handleGetMessageByID)
+	router.PUT("/api/messages/:message_id", middleware.Authenticate(), server.handleUpdateMessage)
+	router.DELETE("/api/messages/:message_id", middleware.Authenticate(), server.handleDeleteMessage)
+	router.POST("/api/messages/:message_id/seen", middleware.Authenticate(), server.handleMarkMessageSeen)
+
 	
 }
