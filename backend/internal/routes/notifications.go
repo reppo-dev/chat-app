@@ -63,3 +63,20 @@ func (server *Server) handleMarkNotificationRead(c *gin.Context) {
 
 	utils.JSON(c, http.StatusOK, true, "Notification marked as read", nil)
 }
+
+func (server *Server) handleMarkAllNotificationsRead(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	if err := server.queries.MarkAllNotificationsAsRead(ctx, userID); err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to mark all notifications as read", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "All notifications marked as read", nil)
+}
