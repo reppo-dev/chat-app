@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -100,5 +101,47 @@ func (server *Server) handleSendMessage(c *gin.Context) {
 	utils.JSON(c, http.StatusCreated, true, "Message sent successfully", gin.H{
 		"message": message,
 	})
-
 }
+
+
+func (server *Server) handleGetConversationMessages(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	convID, ok := parseConversationID(c)
+	if !ok {
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, convID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	limit := int32(50)
+	if l := c.Query("limit"); l != ""{
+		if parsed,err := strconv.ParseInt(l,10,32);err == nil && parsed > 0 && parsed <= 100 {
+			limit = int32(parsed)
+		}
+	}
+
+	messages,err := server.queries.GetConversationMessages(ctx,db.GetConversationMessagesParams{
+		ConversationID: convID,
+		Limit: limit,
+	})
+
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch messages", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Messages fetched", gin.H{
+		"messages": messages,
+	})
+}
+
