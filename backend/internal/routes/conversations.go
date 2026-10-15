@@ -367,7 +367,11 @@ func (server *Server) handleRemoveConversationMember(c *gin.Context) {
 		return
 	}
 
-	memberID,err := strconv.ParseInt(c.Param("member-id"),10,64)
+	memberParam := c.Param("member_id")
+	if memberParam == "" {
+		memberParam = c.Param("member-id")
+	}
+	memberID, err := strconv.ParseInt(memberParam, 10, 64)
 	if err != nil {
 		utils.JSON(c, http.StatusBadRequest, false, "Invalid member ID", nil)
 		return

@@ -7,6 +7,9 @@ package db
 
 import (
 	"context"
+	"time"
+
+	"github.com/sqlc-dev/pqtype"
 )
 
 const acceptFriendRequest = `-- name: AcceptFriendRequest :one
@@ -120,6 +123,114 @@ func (q *Queries) GetPendingFriendRequest(ctx context.Context, arg GetPendingFri
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getReceivedFriendRequests = `-- name: GetReceivedFriendRequests :many
+SELECT fr.id, fr.sender_id, fr.receiver_id, fr.status, fr.created_at, fr.updated_at, u.name as sender_name, u.email as sender_email, u.avatar as sender_avatar
+FROM friend_requests fr
+JOIN users u ON u.id = fr.sender_id
+WHERE fr.receiver_id = $1
+  AND fr.status = 'pending'
+ORDER BY fr.created_at DESC
+`
+
+type GetReceivedFriendRequestsRow struct {
+	ID           int64                 `json:"id"`
+	SenderID     int64                 `json:"sender_id"`
+	ReceiverID   int64                 `json:"receiver_id"`
+	Status       FriendRequestStatus   `json:"status"`
+	CreatedAt    time.Time             `json:"created_at"`
+	UpdatedAt    time.Time             `json:"updated_at"`
+	SenderName   string                `json:"sender_name"`
+	SenderEmail  string                `json:"sender_email"`
+	SenderAvatar pqtype.NullRawMessage `json:"sender_avatar"`
+}
+
+func (q *Queries) GetReceivedFriendRequests(ctx context.Context, receiverID int64) ([]GetReceivedFriendRequestsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getReceivedFriendRequests, receiverID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetReceivedFriendRequestsRow{}
+	for rows.Next() {
+		var i GetReceivedFriendRequestsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SenderID,
+			&i.ReceiverID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SenderName,
+			&i.SenderEmail,
+			&i.SenderAvatar,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSentFriendRequests = `-- name: GetSentFriendRequests :many
+SELECT fr.id, fr.sender_id, fr.receiver_id, fr.status, fr.created_at, fr.updated_at, u.name as receiver_name, u.email as receiver_email, u.avatar as receiver_avatar
+FROM friend_requests fr
+JOIN users u ON u.id = fr.receiver_id
+WHERE fr.sender_id = $1
+  AND fr.status = 'pending'
+ORDER BY fr.created_at DESC
+`
+
+type GetSentFriendRequestsRow struct {
+	ID             int64                 `json:"id"`
+	SenderID       int64                 `json:"sender_id"`
+	ReceiverID     int64                 `json:"receiver_id"`
+	Status         FriendRequestStatus   `json:"status"`
+	CreatedAt      time.Time             `json:"created_at"`
+	UpdatedAt      time.Time             `json:"updated_at"`
+	ReceiverName   string                `json:"receiver_name"`
+	ReceiverEmail  string                `json:"receiver_email"`
+	ReceiverAvatar pqtype.NullRawMessage `json:"receiver_avatar"`
+}
+
+func (q *Queries) GetSentFriendRequests(ctx context.Context, senderID int64) ([]GetSentFriendRequestsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getSentFriendRequests, senderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetSentFriendRequestsRow{}
+	for rows.Next() {
+		var i GetSentFriendRequestsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SenderID,
+			&i.ReceiverID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReceiverName,
+			&i.ReceiverEmail,
+			&i.ReceiverAvatar,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const rejectFriendRequest = `-- name: RejectFriendRequest :one

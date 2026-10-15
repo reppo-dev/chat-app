@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,34 +32,36 @@ func (server *Server) handleCreatePost(c *gin.Context) {
 		return
 	}
 
-	var req struct{
-		Content			string	`json:"content"`
-		BackhroundColor string 	`json:"background_color"`
-		MediaFiles		string	`json:"media_files"`
-		Privacy			string	`json:"privacy"`
+	var req struct {
+		Content         string `json:"content"`
+		BackgroundColor string `json:"background_color"`
+		MediaFiles      any    `json:"media_files"`
+		Privacy         string `json:"privacy"`
 	}
 
-	if err:= c.ShouldBindJSON(&req); err!=nil{
-		utils.JSON(c,http.StatusBadRequest,false,"Invalid request body",nil)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request body", nil)
 		return
 	}
 
+	req.Content = strings.TrimSpace(req.Content)
 	if req.Content == "" {
-		utils.JSON(c,http.StatusBadRequest,false,"Content is required",nil)
+		utils.JSON(c, http.StatusBadRequest, false, "Content is required", nil)
 		return
 	}
 
 	bgColor := "#ffffff"
-	if req.BackhroundColor != "" {
-		bgColor = req.BackhroundColor
+	if req.BackgroundColor != "" {
+		bgColor = req.BackgroundColor
 	}
-	if req.Privacy == "" && req.Privacy != "public" && req.Privacy != "private" && req.Privacy != "friends" {
-		utils.JSON(c,http.StatusBadRequest,false,"Invalid request privacy",nil)
+
+	if req.Privacy != "" && req.Privacy != "public" && req.Privacy != "private" && req.Privacy != "friends" {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request privacy (must be public, private, or friends)", nil)
 		return
 	}
 
 	privacy := db.PostPrivacyPublic
-	if req.Privacy != ""{
+	if req.Privacy != "" {
 		privacy = db.PostPrivacy(req.Privacy)
 	}
 
@@ -76,8 +79,8 @@ func (server *Server) handleCreatePost(c *gin.Context) {
 		Privacy: privacy,
 	})
 
-	if err!= nil {
-		utils.JSON(c,http.StatusInternalServerError,false,"",nil)
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to create post: "+err.Error(), nil)
 		return
 	}
 
@@ -211,8 +214,8 @@ func (server *Server) handleUpdatePost(c *gin.Context) {
 		bgColor = req.BackgroundColor
 	}
 
-	if req.Privacy == "" && req.Privacy != "public" && req.Privacy != "private" && req.Privacy != "friends" {
-		utils.JSON(c,http.StatusBadRequest,false,"Invalid request privacy",nil)
+	if req.Privacy != "" && req.Privacy != "public" && req.Privacy != "private" && req.Privacy != "friends" {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request privacy (must be public, private, or friends)", nil)
 		return
 	}
 

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +21,8 @@ import {
   Video,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useAppSelector } from "@/lib/redux/store";
 
 const sidebarValue = [
   { icon: <Home size={20} />, name: "Home", url: "/" },
@@ -31,32 +35,43 @@ const sidebarValue = [
 ];
 
 export function AppSidebar() {
+  const pathname = usePathname();
+  const currentUser = useAppSelector((state) => state.auth.user);
+
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarTrigger className="absolute right-1 mt-2" />
-      <SidebarHeader>
-        <p className="font-bold">Social Media</p>
+      <SidebarHeader className="p-4">
+        <Link href="/" className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          EchoNet
+        </Link>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarMenu className="gap-2">
-          {sidebarValue.map((item) => (
-            <SidebarMenuItem className="ml-4" key={item.name}>
-              <Link href={item.url}>
-                <SidebarMenuButton>
-                  {item.icon}
-                  {item.name}
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
+        <SidebarMenu className="gap-1 px-2">
+          {sidebarValue.map((item) => {
+            const isActive = pathname === item.url;
+            return (
+              <SidebarMenuItem key={item.name}>
+                <Link href={item.url} className="w-full">
+                  <SidebarMenuButton isActive={isActive}>
+                    {item.icon}
+                    <span>{item.name}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="mb-4">
+      <SidebarFooter className="p-4 border-t">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton>
-              <User2 /> Username
-            </SidebarMenuButton>
+            <Link href="/profile" className="w-full">
+              <SidebarMenuButton>
+                <User2 size={16} />
+                <span className="truncate">{currentUser?.name || "My Account"}</span>
+              </SidebarMenuButton>
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

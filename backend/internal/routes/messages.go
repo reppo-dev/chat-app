@@ -1,1 +1,349 @@
 package routes
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	db "github.com/reppo-dev/chat-app/internal/db/sqlc"
+	"github.com/reppo-dev/chat-app/internal/realtime"
+	"github.com/reppo-dev/chat-app/internal/utils"
+)
+
+func (server *Server) handleSendMessage(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	convID, ok := parseConversationID(c)
+	if !ok {
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, convID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	var req struct {
+		Text       *string `json:"text"`
+		MediaFiles any     `json:"media_files"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request body", nil)
+		return
+	}
+
+	textStr := ""
+	if req.Text != nil {
+		textStr = strings.TrimSpace(*req.Text)
+	}
+
+	var mediaRaw json.RawMessage = []byte("[]")
+	if req.MediaFiles != nil {
+		b, err := json.Marshal(req.MediaFiles)
+		if err == nil && len(b) > 0 {
+			mediaRaw = b
+		}
+	}
+
+	if textStr == "" && string(mediaRaw) == "[]" {
+		utils.JSON(c, http.StatusBadRequest, false, "Message cannot be empty", nil)
+		return
+	}
+
+	var nullText sql.NullString
+	if textStr != "" {
+		nullText = sql.NullString{Valid: true, String: textStr}
+	}
+
+	message, err := server.queries.CreateMessage(ctx, db.CreateMessageParams{
+		ConversationID: convID,
+		SenderID:       userID,
+		Text:           nullText,
+		MediaFiles:     mediaRaw,
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to send message", nil)
+		return
+	}
+
+	// Update last message in conversation
+	_ = server.queries.UpdateConversationLastMessage(ctx, db.UpdateConversationLastMessageParams{
+		ID:            convID,
+		LastMessageID: sql.NullInt64{Valid: true, Int64: message.ID},
+		LastMessageAt: sql.NullTime{Valid: true, Time: message.CreatedAt},
+	})
+
+	// Mark as seen for sender
+	_ = server.queries.MarkMessageAsSeen(ctx, db.MarkMessageAsSeenParams{
+		MessageID: message.ID,
+		UserID:    userID,
+	})
+
+	// Broadcast message to other conversation members via WebSocket
+	server.hub.SendEventToConversation(ctx, convID, userID, realtime.Event{
+		EventType: string(realtime.EventMessage),
+		Payload: gin.H{
+			"message": message,
+		},
+	})
+
+	utils.JSON(c, http.StatusCreated, true, "Message sent successfully", gin.H{
+		"message": message,
+	})
+}
+
+func (server *Server) handleGetConversationMessages(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	convID, ok := parseConversationID(c)
+	if !ok {
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, convID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	limit := int32(50)
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.ParseInt(l, 10, 32); err == nil && parsed > 0 && parsed <= 100 {
+			limit = int32(parsed)
+		}
+	}
+
+	messages, err := server.queries.GetConversationMessages(ctx, db.GetConversationMessagesParams{
+		ConversationID: convID,
+		Limit:          limit,
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch messages", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Messages fetched", gin.H{
+		"messages": messages,
+	})
+}
+
+func (server *Server) handleGetMessageByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg, err := server.queries.GetMessageByID(ctx, msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, msg.ConversationID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not authorized to view this message", nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Message fetched", gin.H{
+		"message": msg,
+	})
+}
+
+func (server *Server) handleUpdateMessage(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg, err := server.queries.GetMessageByID(ctx, msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if msg.SenderID != userID {
+		utils.JSON(c, http.StatusForbidden, false, "You can only edit your own messages", nil)
+		return
+	}
+
+	if msg.IsDeleted {
+		utils.JSON(c, http.StatusBadRequest, false, "Cannot edit a deleted message", nil)
+		return
+	}
+
+	var req struct {
+		Text string `json:"text"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid request body", nil)
+		return
+	}
+
+	req.Text = strings.TrimSpace(req.Text)
+	if req.Text == "" {
+		utils.JSON(c, http.StatusBadRequest, false, "Text is required", nil)
+		return
+	}
+
+	updated, err := server.queries.UpdateMessage(ctx, db.UpdateMessageParams{
+		ID:   msgID,
+		Text: sql.NullString{Valid: true, String: req.Text},
+	})
+	if err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to update message", nil)
+		return
+	}
+
+	server.hub.SendEventToConversation(ctx, msg.ConversationID, userID, realtime.Event{
+		EventType: string(realtime.EventMessageUpdated),
+		Payload: gin.H{
+			"message": updated,
+		},
+	})
+
+	utils.JSON(c, http.StatusOK, true, "Message updated successfully", gin.H{
+		"message": updated,
+	})
+}
+
+func (server *Server) handleDeleteMessage(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg, err := server.queries.GetMessageByID(ctx, msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if msg.SenderID != userID {
+		utils.JSON(c, http.StatusForbidden, false, "You can only delete your own messages", nil)
+		return
+	}
+
+	if err := server.queries.SoftDeleteMessage(ctx, msgID); err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to delete message", nil)
+		return
+	}
+
+	server.hub.SendEventToConversation(ctx, msg.ConversationID, userID, realtime.Event{
+		EventType: string(realtime.EventMessageDeleted),
+		Payload: gin.H{
+			"message_id":      msgID,
+			"conversation_id": msg.ConversationID,
+		},
+	})
+
+	utils.JSON(c, http.StatusOK, true, "Message deleted successfully", nil)
+}
+
+func (server *Server) handleMarkMessageSeen(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
+	msgID, err := strconv.ParseInt(c.Param("message_id"), 10, 64)
+	if err != nil {
+		utils.JSON(c, http.StatusBadRequest, false, "Invalid message ID", nil)
+		return
+	}
+
+	msg, err := server.queries.GetMessageByID(ctx, msgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.JSON(c, http.StatusNotFound, false, "Message not found", nil)
+			return
+		}
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to fetch message", nil)
+		return
+	}
+
+	if !server.isMemberOfConversation(ctx, msg.ConversationID, userID) {
+		utils.JSON(c, http.StatusForbidden, false, "You are not a member of this conversation", nil)
+		return
+	}
+
+	if err := server.queries.MarkMessageAsSeen(ctx, db.MarkMessageAsSeenParams{
+		MessageID: msgID,
+		UserID:    userID,
+	}); err != nil {
+		utils.JSON(c, http.StatusInternalServerError, false, "Failed to mark message as seen", nil)
+		return
+	}
+
+	if msg.SenderID != userID {
+		server.hub.SendEventToUser(msg.SenderID, realtime.Event{
+			EventType: string(realtime.EventRead),
+			Payload: gin.H{
+				"message_id":      msgID,
+				"conversation_id": msg.ConversationID,
+				"seen_by_user_id": userID,
+			},
+		})
+	}
+
+	utils.JSON(c, http.StatusOK, true, "Message marked as seen", nil)
+}

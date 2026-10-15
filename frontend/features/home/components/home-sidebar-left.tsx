@@ -25,7 +25,7 @@ const sidebarValue = [
 export function LefttHomeSidebar() {
   const pathname = usePathname();
   return (
-    <aside className="w-60 dark:bg-zinc-950 h-full hidden sm:flex flex-col justify-start gap-1 z-0">
+    <aside className="w-60 bg-card border-r h-[calc(100vh-4rem)] sticky top-16 hidden md:flex flex-col justify-start p-3 gap-1 z-0">
       {sidebarValue.map((item) => {
         const isActive = pathname === item.url;
 
@@ -33,21 +33,14 @@ export function LefttHomeSidebar() {
           <Link
             href={item.url}
             key={item.name}
-            className={`
-              flex items-center justify-start ml-10 gap-4 mt-4
-             
-            `}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-xs font-semibold ${
+              isActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
           >
-            <div
-              className={` ${isActive ? "text-blue-500 font-bold" : "text-gray-600 dark:text-gray-400"}`}
-            >
-              {item.icon}
-            </div>
-            <div
-              className={` text-sm ${isActive ? " font-bold" : "text-gray-600 dark:text-gray-400"}`}
-            >
-              {item.name}
-            </div>
+            <div>{item.icon}</div>
+            <div>{item.name}</div>
           </Link>
         );
       })}

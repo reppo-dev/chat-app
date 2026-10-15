@@ -1,11 +1,15 @@
 import { LefttHomeSidebar } from "@/features/home/components/home-sidebar-left";
 import { RightHomeSidebar } from "@/features/home/components/home-sidebar-right";
 
-export default function HomeLayout({ children }: LayoutProps<"/">) {
+export default function HomeLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center justify-start w-full h-full">
+    <div className="flex items-start justify-between w-full min-h-[calc(100vh-4rem)]">
       <LefttHomeSidebar />
-      <div className="dark:bg-gray-600 bg-gray-300 w-full h-full">
+      <div className="bg-muted/20 dark:bg-background flex-1 min-h-[calc(100vh-4rem)] w-full">
         {children}
       </div>
       <RightHomeSidebar />
