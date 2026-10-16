@@ -1,0 +1,19 @@
+# Environments and secrets
+.env
+.env*
+*.env
+dev.env
+
+# Dependencies
+node_modules/
+/backend/bin/
+*.exe
+
+# Builds and cache
+.next/
+dist/
+build/
+
+# Operating system files
+.DS_Store
+Thumbs.db

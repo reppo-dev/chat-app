@@ -2,6 +2,8 @@ package routes
 
 import (
 	"database/sql"
+	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,10 +25,44 @@ func (server *Server) StartServer(address string) error {
 func NewServer(queries *db.Queries, dbconn *sql.DB) *Server {
 	router := gin.Default()
 
+	clientURLsEnv := os.Getenv("CLIENT_URL")
+	if clientURLsEnv == "" {
+		clientURLsEnv = os.Getenv("FRONTEND_URL")
+	}
+	var allowedCustomOrigins []string
+	if clientURLsEnv != "" {
+		for _, u := range strings.Split(clientURLsEnv, ",") {
+			cleaned := strings.TrimRight(strings.TrimSpace(u), "/")
+			if cleaned != "" {
+				allowedCustomOrigins = append(allowedCustomOrigins, cleaned)
+			}
+		}
+	}
+
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"},
+		AllowOriginFunc: func(origin string) bool {
+			// Allow local development
+			if strings.HasPrefix(origin, "http://localhost:") ||
+				strings.HasPrefix(origin, "http://127.0.0.1:") ||
+				origin == "http://localhost" ||
+				origin == "http://127.0.0.1" {
+				return true
+			}
+			// Allow Vercel deployments (production and preview branches)
+			if strings.HasSuffix(origin, ".vercel.app") {
+				return true
+			}
+			// Allow custom frontend URLs specified in environment
+			for _, allowed := range allowedCustomOrigins {
+				if origin == allowed {
+					return true
+				}
+			}
+			return false
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Platform", "Upgrade", "Connection"},
+		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
 
