@@ -95,11 +95,12 @@ func (server *Server) handleEmailRegister(c *gin.Context) {
 		HttpOnly: true,
 		Secure: true,
 		Path: "/",
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	utils.JSON(c,http.StatusCreated,true,"SignUp successfully",gin.H{
         "access_token": accessToken,
+        "user": user,
     })
 }
 
@@ -180,11 +181,12 @@ func (server *Server) handleEmailLogin(c *gin.Context) {
 		HttpOnly: true,
 		Secure: true,
 		Path: "/",
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	utils.JSON(c,http.StatusOK,true,"Login successfully",gin.H{
         "access_token": accessToken,
+        "user": user,
     })
 }
 
@@ -218,7 +220,7 @@ func (server *Server) handleLogout(c *gin.Context) {
 		HttpOnly: true,
 		Secure: true,
 		Path: "/",
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	utils.JSON(c,http.StatusOK,true,"Logged out",nil)
@@ -283,7 +285,7 @@ func (server *Server) handleRefreshSession(c *gin.Context) {
 		HttpOnly: true,
 		Secure: true,
 		Path: "/",
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	utils.JSON(c,http.StatusOK,true,"Session refreshed successfully",gin.H{
