@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import authApi from "@/lib/api/auth.api";
+import { setStoredToken } from "@/lib/api";
 import { useAppDispatch } from "@/lib/redux/store";
 import { setCredentials } from "@/lib/redux/slices/authSlice";
 
@@ -54,12 +55,20 @@ export function LoginForm({
       const res = await authApi.login(values);
       const token = res.data?.data?.access_token;
       if (token) {
-        // Fetch current user details
-        const userRes = await authApi.getCurrentUser();
+        setStoredToken(token);
+        let user = res.data?.data?.user;
+        if (!user) {
+          try {
+            const userRes = await authApi.getCurrentUser();
+            user = userRes.data?.data?.user;
+          } catch {
+            // User fallback
+          }
+        }
         dispatch(
           setCredentials({
             token,
-            user: userRes.data?.data?.user,
+            user: user || null,
           })
         );
         router.push("/");
